@@ -12,6 +12,11 @@ cd C:\src\ryu-nakamura-api\tests
 pytest -v
 ```
 
+## デプロイ
+```sh
+az functionapp config appsettings delete --name nakamura-fa --resource-group nakamura-rg --setting-names  ENABLE_ORYX_BUILD SCM_DO_BUILD_DURING_DEPLOYMENT
+# 手動デプロイ
+```
 
 ---
 page_type: sample
