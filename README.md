@@ -1,3 +1,18 @@
+## ローカル環境実行
+```sh
+cd C:\src\ryu-nakamura-api
+.venv\Scripts\activate
+func start
+```
+
+## テスト
+
+```sh
+cd C:\src\ryu-nakamura-api\tests
+pytest -v
+```
+
+
 ---
 page_type: sample
 languages:
