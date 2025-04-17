@@ -3,6 +3,9 @@ from typing import List, Optional
 from models.content import Content
 from repository import content
 from datetime import datetime
+import uuid
+from models.query import QueryFilter
+
 
 router = APIRouter()
 
@@ -13,7 +16,12 @@ async def list_contents(
     limit: int = Query(50, description="Maximum number of contents to return")
 ):
     """コンテンツの一覧を取得する"""
-    contents = content.get_contents(category, title_no,limit)
+    print("コンテンツの一覧を取得する")
+    qf=QueryFilter()
+    qf.add_filter(f"category eq @category",{"category":category})
+    qf.add_filter(f"title_no eq @title_no",{"title_no":title_no})
+    print("qf",qf.dump())
+    contents = content.get_contents(query_filter=qf)
     return contents
 
 # @router.get("/contents/preview", response_model=List[Content], tags=["contents"])
@@ -38,12 +46,12 @@ async def create_content(
 
 @router.put("/contents/{content_id}", response_model=Content, tags=["contents"])
 async def update_content(
-    content_id: int = Path(..., description="Content ID to update"),
+    content_id: uuid.UUID = Path(..., description="Content ID to update"),
     content_item: Content = Body(..., description="Updated content data")
 ):
     """指定されたIDのコンテンツを更新する"""
     # パスのIDとボディのIDが一致することを確認
-    if content_id != content_item.title_no:
+    if content_id != content_item.id:
         raise HTTPException(status_code=400, detail="Path ID and body ID do not match")
     
     # 更新前に存在確認
@@ -56,6 +64,17 @@ async def update_content(
         raise HTTPException(status_code=500, detail="Failed to update content")
     
     return content_item
+
+@router.get("/contents/{content_id}", response_model=Content, tags=["contents"])
+async def get_content_by_id(
+    content_id: uuid.UUID = Path(..., description="Content ID to update"),
+):
+    """指定されたIDのコンテンツを取得する"""
+    existing = content.get_content_by_id(content_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Content not found")
+    
+    return existing
 
 @router.delete("/contents/{content_id}", status_code=204, tags=["contents"])
 async def delete_content_item(

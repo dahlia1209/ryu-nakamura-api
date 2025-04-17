@@ -3,37 +3,35 @@ from azure.identity import DefaultAzureCredential
 from azure.core.exceptions import ResourceExistsError
 from managers.table_connection import TableConnectionManager
 from models.content import Content,ContentTableEntity
+from models.query import QueryFilter
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import json
 import uuid
-
-# クライアントとテーブルの初期化関数
-def get_table_client():
-    try:
-        manager = TableConnectionManager()
-        client=manager.client
-        
-        # テーブルが存在するか確認し、なければ作成
-        try:
-            table_client = client.create_table_if_not_exists("contents")
-        except ResourceExistsError:
-            table_client = client.get_table_client("contents")
-            
-        return table_client
-    except Exception as e:
-        raise Exception(f"Error connecting to Azure Table Storage: {str(e)}")
-        
+from pydantic import BaseModel, Field, EmailStr
 
 def get_contents(
-        category: Optional[str] = None, 
-        title_no:Optional[int]=None,
+        query_filter:QueryFilter=Field(default_factory=QueryFilter()),
         limit: int = 50,
-        is_preview:bool=False
     ) -> List[Content]:
+    
+    try:
+        manager = TableConnectionManager()
+        
+        entities = list(manager.contents_table.query_entities(query_filter.dump()))
+        for e in entities:
+            print("entitie",ContentTableEntity.from_entity(e))
+        if not entities:
+            return None
+        table_entity=ContentTableEntity.from_entity(entities[0])
+        return table_entity
+        
+    except Exception as e:
+        print(f"Error retrieving contents: {str(e)}")
+        return None
 
     try:
-        table_client = get_table_client()
+        manager = TableConnectionManager()
         query_parts = []
         
         if category:
@@ -43,7 +41,7 @@ def get_contents(
             
         query = " and ".join(query_parts) if query_parts else None
         
-        entities = list(table_client.query_entities(query, results_per_page=limit))
+        entities = list(manager.contents_table.query_entities(query, results_per_page=limit))
         contents = []
         
         for entity in entities:
@@ -84,11 +82,27 @@ def get_contents(
     except Exception as e:
         print(f"Error retrieving contents: {str(e)}")
         return []
+    
+def get_content_by_id(content_id: uuid.UUID) :
+    try:
+        manager = TableConnectionManager()
+        entities = list(manager.contents_table.query_entities(query_filter=f"RowKey eq '{content_id}'"))
+        if not entities:
+            return None
+        table_entity=ContentTableEntity.from_entity(entities[0])
+        return table_entity
+        
+    except Exception as e:
+        print(f"Error retrieving contents: {str(e)}")
+        return None
+
+
+
 
 def create_or_update_content(content: Content) -> bool:
     """コンテンツの作成または更新"""
     try:
-        table_client = get_table_client()
+        manager = TableConnectionManager()
         
         content_entity=ContentTableEntity.from_content(content)
         
@@ -103,7 +117,7 @@ def create_or_update_content(content: Content) -> bool:
             entity_dict['publish_date'] = entity_dict['publish_date'].isoformat()
         
         # エンティティのアップサート（存在すれば更新、なければ作成）
-        table_client.upsert_entity(entity_dict)
+        manager.contents_table.upsert_entity(entity_dict)
         return True
     except Exception as e:
         print(f"Error creating/updating content: {str(e)}")
@@ -112,18 +126,19 @@ def create_or_update_content(content: Content) -> bool:
 def delete_content(content_id: int) -> bool:
     """指定されたIDのコンテンツを削除する"""
     try:
-        table_client = get_table_client()
+        # table_client = get_table_client()
+        manager = TableConnectionManager()
         
         # IDを使用してエンティティを検索
         query = f"RowKey eq '{str(content_id)}'"
-        entities = list(table_client.query_entities(query))
+        entities = list(manager.contents_table.query_entities(query))
         
         if not entities:
             return False
             
         # 見つかったエンティティを削除
         entity = entities[0]
-        table_client.delete_entity(
+        manager.contents_table.delete_entity(
             partition_key=entity['PartitionKey'],
             row_key=entity['RowKey']
         )

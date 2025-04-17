@@ -1,5 +1,5 @@
 import fastapi
-from . import connection,email,payment,checkout ,content
+from . import connection,email,payment,checkout ,content,user
 from fastapi.middleware.cors import CORSMiddleware
 
 app = fastapi.FastAPI()
@@ -17,3 +17,4 @@ app.include_router(email.router)
 app.include_router(payment.router)
 app.include_router(checkout.router)
 app.include_router(content.router)
+app.include_router(user.router)
