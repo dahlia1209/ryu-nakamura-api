@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends
-from typing import List, Optional
+from typing import List, Optional,Literal
 from models.user import User
-from repository import user
+from repository import user as user_repos
 from datetime import datetime
 from api.auth import get_current_user, requires_scope
+from models.query import QueryFilter
+import uuid
 
 router = APIRouter()
 
@@ -13,8 +15,36 @@ async def list_users(
     # token_data = Depends(requires_scope("users.read"))
 ):
     """ユーザーの一覧を取得する"""
-    users = user.get_users(limit)
+    qf=QueryFilter()
+    users = user_repos.query_users(qf,limit)
     return users
+
+@router.post("/users", response_model=User, status_code=201, tags=["users"])
+async def create_user_item(
+    user_item: User = Body(..., description="User to create"),
+    
+    # token_data = Depends(requires_scope("users.write"))
+):
+    """新しいユーザーを作成する"""
+    #サブ関数
+    def get_existing_user():
+        qf=QueryFilter()
+        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_item.id})
+        users = user_repos.query_users(qf)
+        return users
+            
+    #メイン処理
+    users=get_existing_user()
+    if users:
+        raise HTTPException(
+            status_code=409,
+            detail=f"ID '{user_item.id}'  を持つリソースが既に存在します"
+        )
+    success = success = user_repos.create_user(user_item)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to create user")
+    return user_item
+
 
 @router.get("/users/{user_id}", response_model=User, tags=["users"])
 async def get_user(
@@ -22,89 +52,60 @@ async def get_user(
     # token_data = Depends(requires_scope("users.read"))
 ):
     """指定されたIDのユーザーを取得する"""
-    user_item = user.get_user_by_id(user_id)
-    if not user_item:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return user_item
+    qf=QueryFilter()
+    qf.add_filter(f"RowKey eq @user_id",{"user_id":user_id})
+    users = user_repos.query_users(qf)
+    if not user_repos:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたIDのコンテンツが見つかりません"
+        )
+    return users[0]
 
-
-@router.get("/users/email/{email}", response_model=User, tags=["users"])
-async def get_user_by_email(
-    email: str = Path(..., description="Email to retrieve"),
-    # token_data = Depends(requires_scope("users.read"))
-):
-    """メールアドレスでユーザーを取得する"""
-    user_item = user.get_user_by_email(email)
-    if not user_item:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return user_item
-
-@router.post("/users", response_model=User, status_code=201, tags=["users"])
-async def create_user_item(
-    user_item: User = Body(..., description="User to create"),
-    # token_data = Depends(requires_scope("users.write"))
-):
-    """新しいユーザーを作成する"""
-    # 認証IDが既に存在するか確認
-    existing_auth_user = user.get_user_by_id(user_item.id)
-    if existing_auth_user:
-        raise HTTPException(status_code=400, detail="Auth ID already registered")
-    
-    success = user.create_user(user_item)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to create user")
-    
-    return user_item
 
 @router.put("/users/{user_id}", response_model=User, tags=["users"])
 async def update_user_item(
-    user_id: str = Path(..., description="User ID to update"),
+    user_id: uuid.UUID = Path(..., description="User ID to update"),
     user_item: User = Body(..., description="Updated user data"),
+    mode:Literal['update','upsert']= Query('update', description="Operation to upsert or update"),
     # token_data = Depends(requires_scope("users.write"))
 ):
-    """指定されたIDのユーザーを更新する"""
-    # パスのIDとボディのIDが一致することを確認
-    if user_id != user_item.id:
-        raise HTTPException(status_code=400, detail="Path ID and body ID do not match")
+    """指定されたIDのコンテンツを更新する"""
+    #サブ関数
+    def get_existing_user():
+        qf=QueryFilter()
+        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_item.id})
+        users = user_repos.query_users(qf)
+        return users
+            
+    #メイン処理
+    if user_id!=user_item.id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"パラメータのID {user_id} と更新するコンテンツのID {user_item.id} が一致しません。"
+        )
     
-    # 更新前に存在確認
-    existing = user.get_user_by_id(user_id)
-    if not existing:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # メールアドレスが変更された場合、重複がないか確認
-    if existing.email != user_item.email:
-        email_user = user.get_user_by_email(user_item.email)
-        if email_user and email_user.id != user_id:
-            raise HTTPException(status_code=400, detail="Email already registered to another user")
-    
-    success = user.update_user(user_item)
+    users=get_existing_user()
+    if not users:
+        if mode=="update":
+            raise HTTPException(
+                status_code=404,
+                detail=f"指定されたID {user_id} のコンテンツが見つかりません"
+            )
+        elif mode=="upsert":
+            success = user_repos.create_user(user_item)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"mode {mode} が正しくありません。"
+            )
+    else:
+        user_item.created_at=None
+        success = user_repos.update_user(user_item)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update user")
+        raise HTTPException(status_code=500, detail=f"Failed to {mode} user")
     
     return user_item
-
-@router.patch("/users/{user_id}/login", response_model=User, tags=["users"])
-async def update_user_login_time(
-    user_id: str = Path(..., description="User ID to update login time"),
-    # token_data = Depends(requires_scope("users.write"))
-):
-    """ユーザーの最終ログイン時間を更新する"""
-    # ユーザーの存在を確認
-    existing = user.get_user_by_id(user_id)
-    if not existing:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # 最終ログイン時間を更新
-    success = user.update_user_login(user_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update login time")
-    
-    # 更新されたユーザーを返す
-    updated_user = user.get_user_by_id(user_id)
-    return updated_user
 
 @router.delete("/users/{user_id}", status_code=204, tags=["users"])
 async def delete_user_item(
@@ -112,8 +113,22 @@ async def delete_user_item(
     # token_data = Depends(requires_scope("users.write"))
 ):
     """指定されたIDのユーザーを削除する"""
-    success = user.delete_user(user_id)
+    #サブ関数
+    def get_existing_user():
+        qf=QueryFilter()
+        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_id})
+        users = user_repos.query_users(qf)
+        return users
+        
+    #メイン処理
+    users=get_existing_user()
+    if not users:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたIDのコンテンツが見つかりません"
+        )
+    success = user_repos.delete_user(users[0])
     if not success:
-        raise HTTPException(status_code=404, detail="User not found or could not be deleted")
+        raise HTTPException(status_code=500, detail="Failed to delete user")
     
-    return None
+    return users[0]

@@ -1,55 +1,62 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any,Literal
 from datetime import datetime
 import uuid
+from azure.data.tables import TableEntity
 
 class User(BaseModel):
-    id: uuid.UUID # Azure B2C user ID
+    id: uuid.UUID 
     provider:str
     email: str
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
     
     model_config = {
         "from_attributes": True
     }
+    
+        
+    def set_timestamp(self,mode:Literal['update','create']):
+        if mode=='create':
+            self.created_at = datetime.now()
+            self.last_login = None
+        elif mode=='update':
+            self.created_at = None
+            self.last_login = datetime.now()
 
 class UserTableEntity(BaseModel):
-    PartitionKey: str = "User"  # Static partition key for all users
-    RowKey: str  # user ID
+    PartitionKey: str = "user" 
+    RowKey: str  
     provider:str
     email: str
-    created_at: str  # ISO format
-    updated_at: str  # ISO format
-    last_login: Optional[str] = None  # ISO format
+    created_at: Optional[str] = None  
+    last_login: Optional[str] = None 
     
     # User モデルに変換するメソッド
     def to_user(self) -> User:
         # 日付文字列をdatetimeに変換
-        created_at = datetime.fromisoformat(self.created_at) if isinstance(self.created_at, str) else datetime.now()
-        updated_at = datetime.fromisoformat(self.updated_at) if isinstance(self.updated_at, str) else datetime.now()
-        last_login = datetime.fromisoformat(self.last_login) if self.last_login else None
+        deserialized_id=uuid.UUID(self.RowKey)
+        deserialized_created_at = datetime.fromisoformat(self.created_at) if self.created_at else None
+        deserialized_last_login = datetime.fromisoformat(self.last_login) if self.last_login else None
         
-        return User(
-            id=uuid.uuid4(self.RowKey),
-            email=self.email,
-            provider=self.provider,
-            created_at=created_at,
-            updated_at=updated_at,
-            last_login=last_login,
-        )
+        return User(id=deserialized_id,created_at=deserialized_created_at,last_login=deserialized_last_login,
+                       **self.model_dump(exclude={"PartitionKey","RowKey","created_at","last_login"}))
     
     @classmethod
     def from_user(cls, user: User) -> "UserTableEntity":
+        serialized_id=str(user.id)
+        serialized_created_at = user.created_at.isoformat() if user.created_at else None
+        serialized_last_login = user.last_login.isoformat() if user.last_login else None
         
-        # リストとオブジェクトをJSON文字列に変換
-        return cls(
-            PartitionKey="User",
-            RowKey=str(user.id),
-            email=user.email,
-            provider=user.provider,
-            created_at=user.created_at.isoformat(),
-            updated_at=user.updated_at.isoformat(),
-            last_login=user.last_login.isoformat() if user.last_login else None,
-        )
+        
+        return cls(RowKey=serialized_id,created_at=serialized_created_at,last_login=serialized_last_login,
+                   **user.model_dump(exclude={"RowKey","created_at","last_login"}))
+        
+    @classmethod
+    def from_entity(cls, entity: TableEntity) :
+        entity_dict = dict(entity)
+        table_entity = UserTableEntity.model_validate(entity_dict)
+        return table_entity
+
+        
+        

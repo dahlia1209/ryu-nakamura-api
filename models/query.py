@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-from typing import List, Optional,Dict,Any
+from typing import List, Optional,Dict,Any,Literal
 from datetime import datetime
 import re
 import uuid
@@ -11,19 +11,20 @@ import json
 class QueryFilter(BaseModel):
     query_filter:Optional[str]=None
     parameters:Dict[str, Any]={}
-    private_filters:List[str]=Field(default_factory=list, alias="_filters")
-    private_params:Dict[str, Any]=Field(default={}, alias="_params")
     
-    def add_filter(self,filter:str,param:Dict[str, Any]):
+    def add_filter(self,filter:str,param:Dict[str, Any],operator:Literal['and','or']='and'):
+        def query_filter_append(val:str):
+            if self.query_filter:
+                self.query_filter+=f" {operator} {val}"
+            else:
+                self.query_filter=val
         first_key, first_value = next(iter(param.items()))
         if first_value:
-            self.private_filters.append(filter)
-            self.private_params.update(param)
+            query_filter_append(filter)
+            self.parameters.update(param)
     
-    def dump(self):
-        self.query_filter=" and ".join(self.private_filters)
-        self.parameters=self.private_params
-        return self.model_dump(include={"query_filter","parameters"})
-        
+    def is_query(self):
+        return True if  self.query_filter is not None else False
+
     
     
