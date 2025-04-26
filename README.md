@@ -1,8 +1,12 @@
 ## ローカル環境実行
 ```sh
+# アプリ起動
 cd C:\src\ryu-nakamura-api
 .venv\Scripts\activate
 func start
+
+# webhookをローカルでリッスン
+C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhook
 ```
 
 ## テスト

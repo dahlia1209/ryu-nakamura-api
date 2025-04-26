@@ -38,7 +38,18 @@ def create_user(user: User) -> bool:
         
     except Exception as e:
         raise ValueError(f"Error retrieving contents: {str(e)}")
-    
+
+def get_user(user_id: str):
+    """ユーザーを取得する"""
+    try:
+        manager = TableConnectionManager()
+        
+        entity=manager.user_table.get_entity(partition_key='user',row_key=user_id)
+        user = UserTableEntity.from_entity(entity).to_user()
+        return user
+        
+    except Exception as e:
+        raise ValueError(f"Error retrieving contents: {str(e)}")  
 
 def update_user(user: User) -> bool:
     """ユーザーを更新する"""

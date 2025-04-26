@@ -8,7 +8,7 @@ from azure.data.tables import TableEntity
 import json
 
 class Content(BaseModel):
-    id:uuid.UUID =uuid.uuid4()
+    id:uuid.UUID =Field(default_factory=uuid.uuid4)
     title_no: int
     title: str
     content_text: str

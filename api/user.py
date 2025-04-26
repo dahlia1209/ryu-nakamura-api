@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends
 from typing import List, Optional,Literal
 from models.user import User
-from repository import user as user_repos
+from repository import user as user_repo
 from datetime import datetime
 from api.auth import get_current_user, requires_scope
 from models.query import QueryFilter
@@ -16,51 +16,56 @@ async def list_users(
 ):
     """ユーザーの一覧を取得する"""
     qf=QueryFilter()
-    users = user_repos.query_users(qf,limit)
+    users = user_repo.query_users(qf,limit)
     return users
 
 @router.post("/users", response_model=User, status_code=201, tags=["users"])
 async def create_user_item(
     user_item: User = Body(..., description="User to create"),
-    
     # token_data = Depends(requires_scope("users.write"))
 ):
     """新しいユーザーを作成する"""
-    #サブ関数
-    def get_existing_user():
-        qf=QueryFilter()
-        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_item.id})
-        users = user_repos.query_users(qf)
-        return users
-            
-    #メイン処理
-    users=get_existing_user()
-    if users:
+    # 既存ユーザーの確認
+    try:
+        existing_user = user_repo.get_user(str(user_item.id))
+        if existing_user:
+            raise HTTPException(
+                status_code=409,
+                detail=f"ID '{user_item.id}' を持つリソースが既に存在します"
+            )
+    except ValueError:
+        pass
+    except Exception as e:
         raise HTTPException(
-            status_code=409,
-            detail=f"ID '{user_item.id}'  を持つリソースが既に存在します"
+            status_code=500,
+            detail=f"ユーザー検索中にエラーが発生しました: {str(e)}"
         )
-    success = success = user_repos.create_user(user_item)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to create user")
-    return user_item
-
+    
+    # ユーザー作成
+    try:
+        user_repo.create_user(user_item)
+        return user_item
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"ユーザー作成中にエラーが発生しました: {str(e)}"
+        )
 
 @router.get("/users/{user_id}", response_model=User, tags=["users"])
 async def get_user(
-    user_id: str = Path(..., description="User ID to retrieve"),
+    user_id: uuid.UUID = Path(..., description="User ID to retrieve"),
     # token_data = Depends(requires_scope("users.read"))
 ):
     """指定されたIDのユーザーを取得する"""
-    qf=QueryFilter()
-    qf.add_filter(f"RowKey eq @user_id",{"user_id":user_id})
-    users = user_repos.query_users(qf)
-    if not user_repos:
+    try:
+        user = user_repo.get_user(str(user_id))
+        return user
+    
+    except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail="指定されたIDのコンテンツが見つかりません"
+            detail=f"指定されたID {user_id} のユーザーが見つかりません"
         )
-    return users[0]
 
 
 @router.put("/users/{user_id}", response_model=User, tags=["users"])
@@ -75,7 +80,7 @@ async def update_user_item(
     def get_existing_user():
         qf=QueryFilter()
         qf.add_filter(f"RowKey eq @user_id",{"user_id":user_item.id})
-        users = user_repos.query_users(qf)
+        users = user_repo.query_users(qf)
         return users
             
     #メイン処理
@@ -93,7 +98,7 @@ async def update_user_item(
                 detail=f"指定されたID {user_id} のコンテンツが見つかりません"
             )
         elif mode=="upsert":
-            success = user_repos.create_user(user_item)
+            success = user_repo.create_user(user_item)
         else:
             raise HTTPException(
                 status_code=400,
@@ -101,7 +106,7 @@ async def update_user_item(
             )
     else:
         user_item.created_at=None
-        success = user_repos.update_user(user_item)
+        success = user_repo.update_user(user_item)
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to {mode} user")
     
@@ -117,7 +122,7 @@ async def delete_user_item(
     def get_existing_user():
         qf=QueryFilter()
         qf.add_filter(f"RowKey eq @user_id",{"user_id":user_id})
-        users = user_repos.query_users(qf)
+        users = user_repo.query_users(qf)
         return users
         
     #メイン処理
@@ -125,9 +130,9 @@ async def delete_user_item(
     if not users:
         raise HTTPException(
             status_code=404,
-            detail="指定されたIDのコンテンツが見つかりません"
+            detail="指定されたIDのユーザーが見つかりません"
         )
-    success = user_repos.delete_user(users[0])
+    success = user_repo.delete_user(users[0])
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete user")
     

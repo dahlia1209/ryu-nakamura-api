@@ -6,6 +6,8 @@
         "isEnabled": true,
         "excludedTypes": "Request"
       }
+    },
+    "logLevel": {
     }
   },
   "extensionBundle": {

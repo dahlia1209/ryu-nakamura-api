@@ -25,6 +25,18 @@ def query_contents(
         
     except Exception as e:
         raise ValueError(f"Error retrieving contents: {str(e)}")
+    
+def get_content(content_id:str) :
+    try:
+        manager = TableConnectionManager()
+        
+        entity=manager.contents_table.get_entity(partition_key='content',row_key=content_id)
+        content=ContentTableEntity.from_entity(entity).to_content()
+        
+        return content
+        
+    except Exception as e:
+        raise ValueError(f"Error retrieving contents: {str(e)}")
 
 def create_content(content: Content) -> bool:
     """コンテンツの作成または更新"""
