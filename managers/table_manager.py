@@ -1,13 +1,11 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ValidationError
 from typing import Literal, Dict, Any, List, Union,Optional
-import traceback
-import random
 from threading import local,Lock
 from azure.data.tables import TableServiceClient,TableClient
 from azure.core.exceptions import ResourceExistsError
 from azure.identity import DefaultAzureCredential
-
+import os
 class TableConnectionManager:
     _instance: Optional['TableConnectionManager'] = None
     _lock = Lock()
@@ -23,7 +21,7 @@ class TableConnectionManager:
                     def get_client():
                         credential = DefaultAzureCredential()
                         return TableServiceClient(
-                            endpoint="https://nakamura-cosmosdb.table.cosmos.azure.com:443/", 
+                            endpoint=os.getenv("AZURE_COSMOSDB_ENDPOINT"), 
                             credential=credential
                         )
                         

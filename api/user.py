@@ -1,18 +1,35 @@
-from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends
+from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends,Header,Request
 from typing import List, Optional,Literal
 from models.user import User
+from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_sub_matching
 from repository import user as user_repo
 from datetime import datetime
-from api.auth import get_current_user, requires_scope
 from models.query import QueryFilter
 import uuid
 
+
 router = APIRouter()
+
+@router.get("/me", response_model=User, tags=["users"])
+async def get_current_user_profile(
+    token_data: JWTPayload = Depends(get_current_user)
+):
+    """ログインユーザー自身の情報を取得する"""
+    user_id = token_data.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="ユーザーIDが見つかりません")
+    
+    try:
+        user = user_repo.get_user(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    
+    return user
 
 @router.get("/users", response_model=List[User], tags=["users"])
 async def list_users(
     limit: int = Query(50, description="Maximum number of users to return"),
-    # token_data = Depends(requires_scope("users.read"))
+    token_data: JWTPayload = Depends(requires_scope("users.list"))
 ):
     """ユーザーの一覧を取得する"""
     qf=QueryFilter()
@@ -22,9 +39,14 @@ async def list_users(
 @router.post("/users", response_model=User, status_code=201, tags=["users"])
 async def create_user_item(
     user_item: User = Body(..., description="User to create"),
-    # token_data = Depends(requires_scope("users.write"))
+    token_data: JWTPayload = Depends(requires_scope("users.write"))
 ):
     """新しいユーザーを作成する"""
+    if not is_token_sub_matching(token_data,user_item.id):
+        raise HTTPException(
+            status_code=403,
+            detail=f"user_item id {user_item.id} とトークンのsubが一致しません"
+        )
     # 既存ユーザーの確認
     try:
         existing_user = user_repo.get_user(str(user_item.id))
@@ -54,9 +76,14 @@ async def create_user_item(
 @router.get("/users/{user_id}", response_model=User, tags=["users"])
 async def get_user(
     user_id: uuid.UUID = Path(..., description="User ID to retrieve"),
-    # token_data = Depends(requires_scope("users.read"))
+    token_data: JWTPayload  = Depends(requires_scope("users.read"))
 ):
     """指定されたIDのユーザーを取得する"""
+    if not is_token_sub_matching(token_data,user_id):
+        raise HTTPException(
+            status_code=403,
+            detail=f"user_id {user_id} とトークンのsubが一致しません"
+        )
     try:
         user = user_repo.get_user(str(user_id))
         return user
@@ -73,67 +100,52 @@ async def update_user_item(
     user_id: uuid.UUID = Path(..., description="User ID to update"),
     user_item: User = Body(..., description="Updated user data"),
     mode:Literal['update','upsert']= Query('update', description="Operation to upsert or update"),
-    # token_data = Depends(requires_scope("users.write"))
+    token_data: JWTPayload  = Depends(requires_scope("users.write"))
 ):
     """指定されたIDのコンテンツを更新する"""
-    #サブ関数
-    def get_existing_user():
-        qf=QueryFilter()
-        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_item.id})
-        users = user_repo.query_users(qf)
-        return users
-            
-    #メイン処理
-    if user_id!=user_item.id:
-        raise HTTPException(
-            status_code=400,
-            detail=f"パラメータのID {user_id} と更新するコンテンツのID {user_item.id} が一致しません。"
-        )
+    if not is_token_sub_matching(token_data,user_id):
+            raise HTTPException(
+                status_code=403,
+                detail=f"user_id {user_id} とトークンのsubが一致しません"
+            )
+    try:
+        user_repo.update_user(user_item)
     
-    users=get_existing_user()
-    if not users:
-        if mode=="update":
+    except ValueError as e:
+        if mode=="upsert":
+            user_repo.create_user(user_item)
+        else:
             raise HTTPException(
                 status_code=404,
                 detail=f"指定されたID {user_id} のコンテンツが見つかりません"
             )
-        elif mode=="upsert":
-            success = user_repo.create_user(user_item)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"mode {mode} が正しくありません。"
-            )
-    else:
-        user_item.created_at=None
-        success = user_repo.update_user(user_item)
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to {mode} user")
-    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+                detail=f"Error: {e} "
+        )
+        
     return user_item
+    
 
 @router.delete("/users/{user_id}", status_code=204, tags=["users"])
 async def delete_user_item(
-    user_id: str = Path(..., description="User ID to delete"),
-    # token_data = Depends(requires_scope("users.write"))
+    user_id: uuid.UUID = Path(..., description="User ID to delete"),
+    token_data: JWTPayload  = Depends(requires_scope("users.write"))
 ):
     """指定されたIDのユーザーを削除する"""
-    #サブ関数
-    def get_existing_user():
-        qf=QueryFilter()
-        qf.add_filter(f"RowKey eq @user_id",{"user_id":user_id})
-        users = user_repo.query_users(qf)
-        return users
-        
-    #メイン処理
-    users=get_existing_user()
-    if not users:
+    if not is_token_sub_matching(token_data,user_id):
+            raise HTTPException(
+                status_code=403,
+                detail=f"user_id {user_id} とトークンのsubが一致しません"
+            )
+    try:
+        user = user_repo.get_user(str(user_id))
+        user_repo.delete_user(str(user_id))
+    except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail="指定されたIDのユーザーが見つかりません"
+            detail=f"指定されたID {user_id} のコンテンツが見つかりません"
         )
-    success = user_repo.delete_user(users[0])
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete user")
-    
-    return users[0]
+        
+    return True

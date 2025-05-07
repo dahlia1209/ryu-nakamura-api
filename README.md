@@ -22,6 +22,16 @@ az functionapp config appsettings delete --name nakamura-fa --resource-group nak
 # 手動デプロイ
 ```
 
+## テーブル書き込み権限付与
+```sh
+$resourceGroupName='nakamura-rg'
+$accountName='nakamura-cosmosdb'                                                                                                          
+$readOnlyRoleDefinitionId='00000000-0000-0000-0000-000000000002' # as fetched above
+$principalId={uuid}
+az cosmosdb sql role assignment create --account-name $accountName --resource-group $resourceGroupName --scope "/" --principal-id $principalId --role-definition-id $readOnlyRoleDefinitionId
+
+```
+
 ---
 page_type: sample
 languages:

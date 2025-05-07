@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
-
+from bs4 import BeautifulSoup
+import os
 
 class EmailAddress(BaseModel):
     address: str
@@ -241,8 +242,171 @@ URL: https://www.ryu-nakamura.com
 </html>
         """
     
-    
+    @classmethod
+    def create_purchased_order_reply(
+        self,to_address:str,
+        name:str,order_id:str,order_date:str,content_title:str,price:str,payment_method:str,content_html:str
+    ):
+        def _create_html() -> str:
+            def body(header:str="",main:str="",footer:str=""):
+                return f"""
+                <body style="margin:0;padding:0;font-size:14px;font-family:sans-serif;background-color:#fff;">
+                    <div class="wrapper" style="margin:0;padding:0;word-break:break-all;background-color:#fff">
+                    {header}
+                    {main}
+                    {footer}
+                    </div>
+                </body>
+                """
+            
+            def header():
+                return f"""
+                <div class="mailer-header" style="padding-top:24px;padding-right:16px;padding-left:16px;margin-bottom:24px;text-align:center;background-color:#fff;">
+                    <table style="width:100%;max-width:600px;margin-right:auto;margin-left:auto">
+                        <tr>
+                            <td style="text-align:center;vertical-align:middle">
+                                <a href="https://www.ryu-nakamura.com" style="color:#787c7b;text-decoration:none;">
+                                <!-- <img height="20" alt="note" src="https://assets.st-note.com/poc-image/manual/production/logo_202212.png"> -->
+                                Ryu Nakamura
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
+                """
+            
+            def main(title:str,order:str,content:str,author:str,recomend:str):
+                return f"""
+                <div class="main" style="padding-left:16px;padding-right:16px">
+                    <table style="width:100%;max-width:600px;margin-left:auto;margin-right:auto">
+                        <tr>
+                            <td>
+                            {title}
+                            {order}
+                            {content}
+                            {author}
+                            {recomend}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                """
+            
+            def main_title(name:str=name):
+                return f"""
+                <div class="title" style="margin-bottom:16px">
+                <table style="width:100%">
+                    <tr>
+                    <td>
+                        <div class="title__text" style="font-size:16px">
+                        <strong>{name}</strong> さん<br>
+                        サイトをご利用いただき、ありがとうございます。<br>
+                        ご購入の詳細は以下のとおりです。
+                        </div>
+                    </td>
+                    </tr>
+                </table>
+                </div>
+                """
+            
+            def main_order(order_id:str=order_id,order_date:str=order_date,content_title:str=content_title,price:str=price,payment_method:str=payment_method):
+                return f"""
+                <div class="card" style="border:1px solid #e6e6e6;background-color:#fff;border-radius:4px">
+                <table style="width:100%;margin-left:auto;margin-right:auto">
+                    <tr>
+                    <td class="card__body" style="padding:24px">
+                        <div class="informationList" style="margin-bottom:0">
+                        <div class="informationList__item" style="margin-bottom:16px">
+                            <b class="informationList__caption" style="display:block">注文ID</b>
+                            {order_id}
+                        </div>
+                        <div class="informationList__item" style="margin-bottom:16px">
+                            <b class="informationList__caption" style="display:block">注文日時</b>
+                            {order_date}
+                        </div>
+                        <div class="informationList__item" style="margin-bottom:16px">
+                            <b class="informationList__caption" style="display:block">商品</b>
+                            {content_title}
+                        </div>
+                        <div class="informationList__item" style="margin-bottom:16px">
+                            <b class="informationList__caption" style="display:block">支払額</b>
+                            {price}円
+                        </div>
+                        <div class="informationList__item" style="margin-bottom:0">
+                            <b class="informationList__caption" style="display:block">決済方法</b>
+                            {payment_method}
+                        </div>
+                        </div>
+                    </td>
+                    </tr>
+                </table>
+                </div>
+                """
+            
+            def main_content(content_html:str=content_html):
+                return f"""
+                <div class="card" style="border:1px solid #e6e6e6;background-color:#fff;border-radius:4px;margin-top:16px">
+                <table style="width:100%;margin-left:auto;margin-right:auto">
+                    <tr>
+                    <td class="card__body card__body--article" style="padding:16px;width:100%;max-width:568px;word-break:break-word">
+                        {content_html}
+                    </td>
+                    </tr>
+                </table>
+                </div>
+                """
+            
+            def main_author():
+                return f""" 
+                
+                """
+            
+            def main_recomend():
+                return f"""
+                
+                """
+            
+            def footer():
+                return f"""
+                <div class="mailer-footer" style="padding-right:16px;padding-left:16px">
+                    <table style="width:100%;max-width:600px;margin-right:auto;margin-left:auto">
+                        <tr>
+                            <td>
+                                <p class="mailer-footer__menu" style="padding-top:32px;padding-bottom:16px;font-size:14px;line-height:2">
+                                
+                                </p>
+                                <p class="mailer-footer__copyright" style="padding-top:16px;padding-bottom:40px;font-size:12px;color:#787c7b;border-top:1px solid #e6e6e6">
+                                <a href="https://www.ryu-nakamura.com/" style="color:#787c7b;text-decoration:none;">© 2025 中村システムエンジニアリング事業所.</a>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                """
+                
+            main_element=main(main_title(),main_order(),main_content(),main_author(),main_recomend())
+            return body(header(),main_element,footer())
+                
+        
+        # 自動返信用のインスタンスを作成
+        soup = BeautifulSoup(_create_html(), 'html.parser')
+        reply = EmailMessage(
+            senderAddress=os.getenv('SENDER_ADDRESS'),
+            recipients=EmailRecipients(
+                to=[EmailAddress(address=to_address)]
+            ),
+            content=EmailContent(
+                subject=f"【ryu-nakamura.com】ご購入が完了いたしました ",
+                plainText=soup.get_text(),
+                html=str(soup)
+            ),
+            senderName="自動返信システム"  
+        )
+        
+        return reply
+        
 
 class EmailResponse(BaseModel):
     id: str

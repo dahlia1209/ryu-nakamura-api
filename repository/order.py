@@ -1,7 +1,7 @@
 from azure.data.tables import TableServiceClient,UpdateMode
 from azure.identity import DefaultAzureCredential
 from azure.core.exceptions import ResourceExistsError
-from managers.table_connection import TableConnectionManager
+from managers.table_manager import TableConnectionManager
 from models.order import Order,OrderTableEntity,OrderStatus,OrderItem
 from models.query import QueryFilter
 from repository import user as user_repo
@@ -37,7 +37,7 @@ def query_orders(
     except Exception as e:
         raise ValueError(f"Error retrieving users: {str(e)}")
 
-def get_order(order_id:str) -> bool:
+def get_order(order_id:str):
     """注文情報を取得する"""
     try:
         manager = TableConnectionManager()

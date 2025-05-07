@@ -10,3 +10,5 @@ azure-data-tables
 python-jose[cryptography]
 httpx
 azure-identity
+requests
+beautifulsoup4

@@ -1,7 +1,7 @@
 from azure.data.tables import TableServiceClient
 from azure.identity import DefaultAzureCredential
 from azure.core.exceptions import ResourceExistsError
-from managers.table_connection import TableConnectionManager
+from managers.table_manager import TableConnectionManager
 from models.user import User, UserTableEntity
 from models.query import QueryFilter
 from typing import List, Optional, Dict, Any
@@ -66,13 +66,11 @@ def update_user(user: User) -> bool:
 
 
 
-def delete_user(user: User) -> bool:
+def delete_user(user_id: str) -> bool:
     """ユーザーを削除する"""
     try:
         manager = TableConnectionManager()
-        user_entity=UserTableEntity.from_user(user)
-        
-        manager.user_table.delete_entity(partition_key=user_entity.PartitionKey,row_key=user_entity.RowKey)
+        manager.user_table.delete_entity(partition_key='user',row_key=user_id)
         return True
         
     except Exception as e:
