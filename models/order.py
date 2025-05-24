@@ -33,7 +33,7 @@ class Order(BaseModel):
                 "product_data": {
                     "name": self.content.title,
                     "description": self.content.content_text[:200],
-                    "images": [],
+                    "images": [self.content.image_url],
                 },
                 "unit_amount": int(self.content.price),
             },

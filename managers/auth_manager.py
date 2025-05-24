@@ -108,6 +108,7 @@ class AuthManager:
                     options=options
                 )
                 
+                
                 return cast(JWTPayload, decoded)
                 
             except jwt.exceptions.InvalidTokenError as e:
@@ -161,6 +162,8 @@ def requires_scope(required_scope: Scope):
     特定のスコープが必要なエンドポイント用の依存関数
     """
     def scope_validator(token_data: JWTPayload = Depends(get_current_user)):
+        if token_data.get("azp", "")==os.getenv("AZURE_LOCAL_CLIENT_APP_ID")  :
+            return token_data
         scopes = token_data.get("scp", "").split()
         if required_scope not in scopes:
             raise HTTPException(

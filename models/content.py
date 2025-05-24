@@ -7,6 +7,7 @@ import uuid
 from azure.data.tables import TableEntity
 import json
 
+
 class Content(BaseModel):
     id:uuid.UUID =Field(default_factory=uuid.uuid4)
     title_no: int

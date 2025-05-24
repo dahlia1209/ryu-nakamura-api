@@ -6,7 +6,7 @@ cd C:\src\ryu-nakamura-api
 func start
 
 # webhookをローカルでリッスン
-C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhook
+C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhooks
 ```
 
 ## テスト
@@ -22,11 +22,18 @@ az functionapp config appsettings delete --name nakamura-fa --resource-group nak
 # 手動デプロイ
 ```
 
+## アクセストークンを取得
+```sh
+cd C:\src\ryu-nakamura-api
+.venv\Scripts\activate
+python C:\src\ryu-nakamura-api\.venv\Scripts\auth_client.py
+```
+
 ## テーブル書き込み権限付与
 ```sh
 $resourceGroupName='nakamura-rg'
-$accountName='nakamura-cosmosdb'                                                                                                          
-$readOnlyRoleDefinitionId='00000000-0000-0000-0000-000000000002' # as fetched above
+$accountName='nakamura-cosmosdb-local'
+$readOnlyRoleDefinitionId='00000000-0000-0000-0000-000000000002'
 $principalId={uuid}
 az cosmosdb sql role assignment create --account-name $accountName --resource-group $resourceGroupName --scope "/" --principal-id $principalId --role-definition-id $readOnlyRoleDefinitionId
 

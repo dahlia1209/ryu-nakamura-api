@@ -12,6 +12,7 @@ from repository import content as content_repo
 from datetime import datetime
 import uuid
 from models.query import QueryFilter
+from bs4 import BeautifulSoup
 
 router = APIRouter()
 security = HTTPBearer()
@@ -22,7 +23,7 @@ async def list_contents(
     category: Optional[str] = Query(None, description="Filter by category"),
     title_no: Optional[int] = Query(None, description="Filter by title_no"),
     limit: int = Query(50, description="Maximum number of contents to return"),
-    token_data: JWTPayload = Depends(requires_scope("contents.list")),
+    token_data: JWTPayload = Depends(requires_scope("contents.read")),
 ):
     """コンテンツの一覧を取得する"""
     qf = QueryFilter()
@@ -50,14 +51,21 @@ async def create_content(
         if contents:
             return True
         return False
+    
+    def update_content(content_item: Content):
+        soup = BeautifulSoup(content_item.content_html, 'html.parser')
+        content_item.content_html = str(soup)
+        content_item.content_text = soup.get_text()
 
     # メイン処理
     existing = check_existing_content()
+    update_content(content_item)
     if existing:
         raise HTTPException(
             status_code=409,
             detail=f"ID '{content_item.id}' または title_no '{content_item.title_no}' を持つリソースが既に存在します",
         )
+    
     success = content_repo.create_content(content_item)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to create content")

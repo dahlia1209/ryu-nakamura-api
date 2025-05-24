@@ -59,3 +59,10 @@ async def webhook(request: Request):
 
     
     return retsult
+
+@router.post("/webhooks/singinsignup",tags=["webhooks"])
+async def webhook(request: Request):
+    payload = await request.body()
+    
+    print(payload)
+    return payload
