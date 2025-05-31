@@ -6,13 +6,16 @@ from managers.auth_manager import (
     JWTPayload,
     get_current_user,
     requires_scope,
-    is_token_sub_matching,
+    is_token_oid_matching,
 )
+from managers.blob_manager import BLOBConnectionManager
 from repository import content as content_repo
 from datetime import datetime
 import uuid
 from models.query import QueryFilter
 from bs4 import BeautifulSoup
+import os
+import json
 
 router = APIRouter()
 security = HTTPBearer()
@@ -149,3 +152,29 @@ async def delete_content_item(
         raise HTTPException(status_code=500, detail="Failed to delete content")
 
     return contents[0]
+
+
+@router.put("/contents/process/generate_contents_list", response_model=List[Content], tags=["contents"])
+async def generate_contents_list(
+    token_data: JWTPayload = Depends(requires_scope("contents.read")),
+):
+    """コンテンツ一覧ファイルを生成する"""
+    try:
+        qf = QueryFilter()
+        contents = content_repo.query_contents(qf)
+
+        manager=BLOBConnectionManager()
+        blob_client = manager.client.get_blob_client(
+                container=os.getenv("AZURE_BLOB_CONTAINER_NAME","root"), 
+                blob=os.getenv("CONTENT_LIST_FILE_NAME"), 
+        )
+            
+        contents_list = json.dumps([json.loads(c.to_preview().model_dump_json()) for c in contents])
+        blob_client.upload_blob(contents_list, overwrite=True)
+        return contents
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"コンテンツ一覧ファイル生成に失敗しました:{e}")
+    
+    
+    

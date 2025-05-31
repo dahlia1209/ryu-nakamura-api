@@ -59,4 +59,30 @@ class UserTableEntity(BaseModel):
         return table_entity
 
         
+class Identity(BaseModel):
+    signInType: Optional[str] = None
+    issuer: Optional[str] = None
+    issuerAssignedId: Optional[str] = None
+
+class AzureUser(BaseModel):
+    step: str 
+    client_id: uuid.UUID 
+    ui_locales: str 
+    email: str
+    objectId: uuid.UUID 
+    surname: str 
+    displayName: str 
+    givenName: str 
+    identities: List[Identity] = []
+    
+    def to_user(self):
+        created_at = datetime.now()
+        provider=self.identities[0].issuer if self.identities and self.identities[0].issuer else None
+        if not provider:
+            raise ValueError("プロバイダーがありません。")
         
+        return User(id=self.client_id,created_at=created_at,email=self.email,provider=provider)
+    
+class AzureAPIConnectResponse(BaseModel):
+    version:str="1.0.0"
+    action:Literal["continue","ShowBlockPage"]="continue"

@@ -7,7 +7,7 @@ from typing import Dict, Any,List,Optional
 from repository import user as user_repo
 from repository import content as content_repo
 from repository import order as order_repo
-from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_sub_matching
+from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_oid_matching
 import uuid
 
 router = APIRouter()
@@ -25,7 +25,7 @@ async def list_orders(
     token_data: JWTPayload  = Depends(requires_scope("orders.read"))
 ):
     """注文情報一覧を取得する"""
-    if not is_token_sub_matching(token_data,user_id):
+    if not is_token_oid_matching(token_data,user_id):
             raise HTTPException(
                 status_code=403,
                 detail=f"user_id {user_id} とトークンのsubが一致しません"
@@ -89,7 +89,7 @@ async def get_order(
     try:
         order = order_repo.get_order(str(order_id))
         
-        if is_token_sub_matching(token_data,order.user.id):
+        if is_token_oid_matching(token_data,order.user.id):
             raise HTTPException(
                 status_code=403,
                 detail=f"指定されたID {order_id} の注文情報の取得権限がありません"
@@ -111,7 +111,7 @@ async def update_order_status(
     """指定された注文IDのステータスを更新する"""
     try:
         result=order_repo.update_order_status(str(order_id),status)
-        if is_token_sub_matching(token_data,result.user_id):
+        if is_token_oid_matching(token_data,result.user_id):
             raise HTTPException(
                 status_code=403,
                 detail=f"指定されたID {order_id} の注文情報の更新権限がありません"

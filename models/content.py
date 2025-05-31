@@ -6,6 +6,7 @@ import re
 import uuid
 from azure.data.tables import TableEntity
 import json
+from bs4 import BeautifulSoup
 
 
 class Content(BaseModel):
@@ -25,6 +26,58 @@ class Content(BaseModel):
     model_config = {
         "from_attributes": True
     }
+    
+    def to_preview(self):
+        preview_text=""
+        preview_html=""
+        remaining_text_length=""
+        
+        soup = BeautifulSoup(self.content_html, 'html.parser')
+        first_h2 = soup.find('h2')
+        if not first_h2:
+            return PreviewContent(**self.model_dump(),preview_html=preview_html,preview_text=preview_text,remaining_text_length=remaining_text_length)
+        
+        # 最初のh2とその後の連続するp要素を収集
+        first_section_elements = [first_h2]
+        current_element = first_h2.next_sibling
+        
+        while current_element:
+            if current_element.name == 'p':
+                first_section_elements.append(current_element)
+                current_element = current_element.next_sibling
+            elif current_element.name and current_element.name != 'p':
+                # 次のh2や他のタグに遭遇したら停止
+                break
+            else:
+                # テキストノードなどをスキップ
+                current_element = current_element.next_sibling
+        
+        # ①の結果：最初のセクションのHTML
+        preview_html = ''.join(str(elem) for elem in first_section_elements)
+        preview_text = ''.join(elem.get_text() for elem in first_section_elements)
+        preview_text_length = len(preview_text)
+        
+        all_text = soup.get_text()
+        remaining_text = all_text.replace(preview_text, '', 1)  # 最初の一致のみ削除
+        remaining_text_length = len(remaining_text)
+        
+        return PreviewContent(**self.model_dump(),preview_html=preview_html,preview_text=preview_text,remaining_text_length=remaining_text_length)
+            
+
+class PreviewContent(BaseModel):
+    id:uuid.UUID =Field(default_factory=uuid.uuid4)
+    title_no: int
+    title: str
+    preview_text: str
+    preview_html: str
+    image_url: str
+    price: float
+    category: str
+    tags: List[str]
+    publish_date: datetime
+    remaining_text_length: int 
+    note_url: Optional[str] = None
+            
 
 
 class ContentTableEntity(BaseModel):

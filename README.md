@@ -19,6 +19,7 @@ pytest -v
 ## デプロイ
 ```sh
 az functionapp config appsettings delete --name nakamura-fa --resource-group nakamura-rg --setting-names  ENABLE_ORYX_BUILD SCM_DO_BUILD_DURING_DEPLOYMENT
+az functionapp config appsettings delete --name nakamura-fa-local --resource-group nakamura-rg --setting-names  ENABLE_ORYX_BUILD SCM_DO_BUILD_DURING_DEPLOYMENT
 # 手動デプロイ
 ```
 
@@ -31,10 +32,10 @@ python C:\src\ryu-nakamura-api\.venv\Scripts\auth_client.py
 
 ## テーブル書き込み権限付与
 ```sh
+$principalId=az ad sp show --id {uuid}  --query id -o tsv
 $resourceGroupName='nakamura-rg'
 $accountName='nakamura-cosmosdb-local'
 $readOnlyRoleDefinitionId='00000000-0000-0000-0000-000000000002'
-$principalId={uuid}
 az cosmosdb sql role assignment create --account-name $accountName --resource-group $resourceGroupName --scope "/" --principal-id $principalId --role-definition-id $readOnlyRoleDefinitionId
 
 ```

@@ -12,3 +12,4 @@ httpx
 azure-identity
 requests
 beautifulsoup4
+azure-storage-blob

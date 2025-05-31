@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends,Header,Request
 from typing import List, Optional,Literal
 from models.user import User
-from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_sub_matching
+from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_oid_matching
 from repository import user as user_repo
 from datetime import datetime
 from models.query import QueryFilter
@@ -42,7 +42,7 @@ async def create_user_item(
     token_data: JWTPayload = Depends(requires_scope("users.write"))
 ):
     """新しいユーザーを作成する"""
-    if not is_token_sub_matching(token_data,user_item.id):
+    if not is_token_oid_matching(token_data,user_item.id):
         raise HTTPException(
             status_code=403,
             detail=f"user_item id {user_item.id} とトークンのsubが一致しません"
@@ -79,7 +79,7 @@ async def get_user(
     token_data: JWTPayload  = Depends(requires_scope("users.read"))
 ):
     """指定されたIDのユーザーを取得する"""
-    if not is_token_sub_matching(token_data,user_id):
+    if not is_token_oid_matching(token_data,user_id):
         raise HTTPException(
             status_code=403,
             detail=f"user_id {user_id} とトークンのsubが一致しません"
@@ -103,10 +103,10 @@ async def update_user_item(
     token_data: JWTPayload  = Depends(requires_scope("users.write"))
 ):
     """指定されたIDのコンテンツを更新する"""
-    if not is_token_sub_matching(token_data,user_id):
+    if not is_token_oid_matching(token_data,user_id):
             raise HTTPException(
                 status_code=403,
-                detail=f"user_id {user_id} とトークンのsubが一致しません"
+                detail=f"user_id {user_id} とトークンのoidが一致しません"
             )
     try:
         user_repo.update_user(user_item)
@@ -134,7 +134,7 @@ async def delete_user_item(
     token_data: JWTPayload  = Depends(requires_scope("users.write"))
 ):
     """指定されたIDのユーザーを削除する"""
-    if not is_token_sub_matching(token_data,user_id):
+    if not is_token_oid_matching(token_data,user_id):
             raise HTTPException(
                 status_code=403,
                 detail=f"user_id {user_id} とトークンのsubが一致しません"

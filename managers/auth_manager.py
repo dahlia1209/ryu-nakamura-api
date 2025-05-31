@@ -8,7 +8,11 @@ import jwt
 import requests
 from typing import TypedDict, List, cast
 from pydantic import ValidationError
-from functools import lru_cache
+import logging
+
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class JWKKey(TypedDict):
     kty: str
@@ -44,17 +48,33 @@ class AuthManager:
         return cls._instance
     
     def _get_jwt_keys(self) -> List[JWKKey]:
-        """JWTの検証キーをAzure ADから取得する"""
+        """JWTの検証キーをMicrosoft Entra External IDから取得する"""
         try:
-            tenant_id = os.getenv('AZURE_B2C_TENANT_ID')
+            # 環境変数からテナント情報を取得
+            tenant_id = os.getenv('AZURE_B2C_TENANT_ID')  # 実際のテナントID
+            
             if not tenant_id:
                 raise ValueError("AZURE_B2C_TENANT_ID環境変数が設定されていません")
-                
-            jwks_uri = f"https://ryunakamura.b2clogin.com/{os.getenv('AZURE_B2C_TENANT_ID')}/discovery/v2.0/keys?p=B2C_1_signupsignin1"
+            
+            # OpenID設定ドキュメントのURLを構築
+            openid_config_url = f"https://{tenant_id}.ciamlogin.com/{tenant_id}/v2.0/.well-known/openid-configuration"
+            
+            # OpenID設定を取得
+            config_response = requests.get(openid_config_url, timeout=10)
+            config_response.raise_for_status()
+            config_data = config_response.json()
+            
+            # JWKS URIを取得
+            jwks_uri = config_data.get('jwks_uri')
+            if not jwks_uri:
+                raise ValueError("OpenID設定にjwks_uriが見つかりません")
+            
+            # JWKSを取得
             keys_response = requests.get(jwks_uri, timeout=10)
             keys_response.raise_for_status()
             
             return cast(List[JWKKey], keys_response.json()["keys"])
+            
         except requests.exceptions.RequestException as e:
             raise ValueError(f"JWT検証キーの取得に失敗しました: {e}")
     
@@ -76,8 +96,9 @@ class AuthManager:
                 }
                 signing_key = RSAAlgorithm.from_jwk(jwk)
                 return signing_key
-            
         if not signing_key:
+            print(f"Available keys: {[key.get('kid') for key in self.jwt_keys]}")
+            print(f"Looking for kid: {header.get('kid')}")
             raise ValueError(f"署名キーが見つかりません。kid: {header.get('kid')}")
         
         return signing_key
@@ -87,9 +108,15 @@ class AuthManager:
             try:
                 signing_key = self.get_signing_key(jwt_token)
                 
-                # B2Cトークンの場合、audienceは通常リソースIDになります
+                # External IDの設定
                 audience = os.getenv('AZURE_API_APP_ID')
-                issuer = f"https://ryunakamura.b2clogin.com/{os.getenv('AZURE_B2C_TENANT_ID')}/v2.0/"
+                tenant_id = os.getenv('AZURE_B2C_TENANT_ID')
+                
+                if not tenant_id:
+                    raise ValueError("AZURE_B2C_TENANT_ID環境変数が設定されていません")
+                
+                # External IDの正しいissuer形式
+                issuer = f"https://{tenant_id}.ciamlogin.com/{tenant_id}/v2.0"
                 
                 options = {
                     "verify_signature": True,
@@ -97,6 +124,7 @@ class AuthManager:
                     "verify_iat": True,
                     "verify_exp": True,
                     "verify_nbf": True,
+                    "verify_iss": True,
                 }
                 
                 decoded = jwt.decode(
@@ -107,7 +135,6 @@ class AuthManager:
                     algorithms=["RS256"],
                     options=options
                 )
-                
                 
                 return cast(JWTPayload, decoded)
                 
@@ -124,9 +151,7 @@ class AuthManager:
                     )
         
         return try_decode()
-    
-    
-    
+
 # セキュリティスキーマ
 security = HTTPBearer()
 
@@ -145,7 +170,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
             headers={"WWW-Authenticate": "Bearer"}
         )
         
-Scope= Literal[
+Scope = Literal[
     'users.read',
     'users.list',
     'users.write',
@@ -162,7 +187,7 @@ def requires_scope(required_scope: Scope):
     特定のスコープが必要なエンドポイント用の依存関数
     """
     def scope_validator(token_data: JWTPayload = Depends(get_current_user)):
-        if token_data.get("azp", "")==os.getenv("AZURE_LOCAL_CLIENT_APP_ID")  :
+        if token_data.get("azp", "") == os.getenv("AZURE_LOCAL_CLIENT_APP_ID", "e0282457-8666-4877-84ea-b516120d123f"):
             return token_data
         scopes = token_data.get("scp", "").split()
         if required_scope not in scopes:
@@ -173,8 +198,8 @@ def requires_scope(required_scope: Scope):
         return token_data
     return scope_validator
 
-def is_token_sub_matching(
+def is_token_oid_matching(
     token: JWTPayload,
     id: uuid.UUID,
 ):
-    return str(id) == token.get("sub")
+    return str(id) == token.get("oid")

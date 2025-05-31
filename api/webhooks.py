@@ -3,6 +3,7 @@ import stripe
 import os
 from models.order import OrderItem,Order
 from models.query import QueryFilter
+from models.user import AzureUser,AzureAPIConnectResponse
 from typing import Dict, Any
 from repository import user as user_repo
 from repository import content as content_repo
@@ -61,8 +62,23 @@ async def webhook(request: Request):
     return retsult
 
 @router.post("/webhooks/singinsignup",tags=["webhooks"])
-async def webhook(request: Request):
-    payload = await request.body()
-    
-    print(payload)
-    return payload
+async def webhook(azure_user: AzureUser=Body(...,description="azure user data")):
+    try:
+        user_item = azure_user.to_user()
+        
+        try:
+            user_repo.update_user(user_item)
+        
+        except ValueError as e:
+            user_repo.create_user(user_item)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                    detail=f"Error: {e} "
+            )
+            
+        return user_item
+        
+    except Exception as e:
+        print(f"Error processing user data: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
