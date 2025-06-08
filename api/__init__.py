@@ -1,5 +1,5 @@
 import fastapi
-from . import connection,email ,content,user,order,webhooks
+from . import connection, contact,content,user,order,webhooks
 from fastapi.middleware.cors import CORSMiddleware
 
 app = fastapi.FastAPI()
@@ -13,7 +13,7 @@ app.add_middleware(
 )
     
 app.include_router(connection.router)
-app.include_router(email.router)
+app.include_router(contact.router)
 app.include_router(content.router)
 app.include_router(user.router)
 app.include_router(order.router)

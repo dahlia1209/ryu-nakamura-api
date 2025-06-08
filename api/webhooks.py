@@ -9,7 +9,7 @@ from repository import user as user_repo
 from repository import content as content_repo
 from repository import order as order_repo
 from managers.email_manager import EmailManager
-from models.email import EmailResponse,EmailMessage
+from models.email import EmailResponse,EmailRequest,EmailContent,EmailRecipients,EmailMessage,EmailAddress
 import datetime
 router = APIRouter()
 
@@ -44,17 +44,24 @@ async def webhook(request: Request):
             user=user_repo.get_user(str(order_item.user_id))
             dt=datetime.datetime.fromtimestamp(event.data.object.get("created"))
             email_manager=EmailManager()
-
-            purchased_order_reply=EmailMessage.create_purchased_order_reply(
-                to_address=user.email,
-                order_id=order_id,
-                content_html=content.content_html,
-                content_title=content.title,
-                name=user.email,
-                order_date=dt.strftime('%Y年%m月%d日 %H時%M分'),
-                payment_method="クレジットカード",
-                price=str(int(content.price)),
+            
+            purchased_order_reply=EmailRequest(
+                content=EmailContent.purchased_order(
+                    name=user.email,
+                    order_id=order_id,
+                    order_date=dt.strftime('%Y年%m月%d日 %H時%M分'),
+                    content_title=content.title,
+                    price=str(int(content.price)),
+                    payment_method="クレジットカード",
+                    content_html=content.content_html,
+                    ),
+                recipients=EmailRecipients(
+                    to=[EmailAddress(address=user.email,displayName=user.email)],
+                    bcc=[EmailAddress(address=os.getenv('RECIPENTS_ADDRESS'),displayName=os.getenv('RECIPENTS_ADDRESS'))]
+                    ),
+                senderAddress=os.getenv('SENDER_ADDRESS'),
             )
+
             poller = email_manager.client.begin_send(purchased_order_reply.model_dump())
             mail_result = poller.result()
 

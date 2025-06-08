@@ -6,7 +6,9 @@ from repository import user as user_repo
 from datetime import datetime
 from models.query import QueryFilter
 import uuid
-
+from managers.email_manager import EmailManager
+from models.email import EmailResponse,EmailRequest,EmailContent,EmailRecipients,EmailMessage,EmailAddress
+import os
 
 router = APIRouter()
 
@@ -66,6 +68,30 @@ async def create_user_item(
     # ユーザー作成
     try:
         user_repo.create_user(user_item)
+        # 登録完了メールを送信
+        try:
+            email_manager = EmailManager()
+            
+            reply=EmailRequest(
+                content=EmailContent.registration(
+                    email=user_item.email,
+                    name=user_item.email
+                    ),
+                recipients=EmailRecipients(
+                    to=[EmailAddress(address=user_item.email,displayName=user_item.email)],
+                    bcc=[EmailAddress(address=os.getenv('RECIPENTS_ADDRESS'),displayName=os.getenv('RECIPENTS_ADDRESS'))]
+                    ),
+                senderAddress=os.getenv('SENDER_ADDRESS'),
+            )
+            
+            poller = email_manager.client.begin_send(reply.model_dump())
+            mail_result = poller.result()
+            
+            
+        except Exception as e:
+            # メール送信に失敗してもユーザー作成は成功とする
+            print(f"登録完了メール送信エラー: {str(e)}")
+            
         return user_item
     except Exception as e:
         raise HTTPException(
@@ -109,11 +135,38 @@ async def update_user_item(
                 detail=f"user_id {user_id} とトークンのoidが一致しません"
             )
     try:
+        user_item.set_timestamp('update')
         user_repo.update_user(user_item)
     
     except ValueError as e:
         if mode=="upsert":
+            user_item.set_timestamp('create')
             user_repo.create_user(user_item)
+            
+            # 登録完了メールを送信
+            try:
+                email_manager = EmailManager()
+                
+                reply=EmailRequest(
+                content=EmailContent.registration(
+                    email=user_item.email,
+                    name=user_item.email
+                    ),
+                recipients=EmailRecipients(
+                    to=[EmailAddress(address=user_item.email,displayName=user_item.email)],
+                    bcc=[EmailAddress(address=os.getenv('RECIPENTS_ADDRESS'),displayName=os.getenv('RECIPENTS_ADDRESS'))]
+                    ),
+                senderAddress=os.getenv('SENDER_ADDRESS'),
+                )
+                
+                poller = email_manager.client.begin_send(reply.model_dump())
+                mail_result = poller.result()
+                
+            except Exception as e:
+                # メール送信に失敗してもユーザー作成は成功とする
+                print(f"登録完了メール送信エラー: {str(e)}")
+                
+            return user_item
         else:
             raise HTTPException(
                 status_code=404,
