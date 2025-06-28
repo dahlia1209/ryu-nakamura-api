@@ -6,7 +6,7 @@ from managers.auth_manager import (
     JWTPayload,
     get_current_user,
     requires_scope,
-    is_token_oid_matching,
+    is_token_id_matching,
 )
 from managers.blob_manager import BLOBConnectionManager
 from repository import content as content_repo

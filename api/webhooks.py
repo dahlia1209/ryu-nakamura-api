@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Response,Body,Query
+from fastapi import APIRouter, HTTPException, Request, Response,Body,Query,BackgroundTasks
 import stripe
 import os
 from models.order import OrderItem,Order
@@ -11,15 +11,19 @@ from repository import order as order_repo
 from managers.email_manager import EmailManager
 from models.email import EmailResponse,EmailRequest,EmailContent,EmailRecipients,EmailMessage,EmailAddress
 import datetime
+from api.email import purchased_complete
+
 router = APIRouter()
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-
 @router.post("/webhooks",tags=["webhooks"])
-async def webhook(request: Request):
+async def webhook(
+    background_tasks: BackgroundTasks,
+    request: Request
+):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
     
     try:
         event = stripe.Webhook.construct_event(
@@ -32,41 +36,42 @@ async def webhook(request: Request):
         # Invalid signature
         raise HTTPException(status_code=400, detail=str(e))
     
-    retsult=None
+    result=None
     if event.type== 'checkout.session.expired' or event.type== 'checkout.session.completed':
         status=event.data.object.get("status")
         order_id = event.data.object.get('metadata', {}).get('order_id')
         order_item=order_repo.update_order_status(order_id,status)
-        retsult=order_item
+        result=order_item
         
         if event.type=='checkout.session.completed':
             content=content_repo.get_content(str(order_item.content_id))
             user=user_repo.get_user(str(order_item.user_id))
             dt=datetime.datetime.fromtimestamp(event.data.object.get("created"))
-            email_manager=EmailManager()
             
-            purchased_order_reply=EmailRequest(
-                content=EmailContent.purchased_order(
-                    name=user.email,
-                    order_id=order_id,
-                    order_date=dt.strftime('%Y年%m月%d日 %H時%M分'),
-                    content_title=content.title,
-                    price=str(int(content.price)),
-                    payment_method="クレジットカード",
-                    content_html=content.content_html,
-                    ),
-                recipients=EmailRecipients(
-                    to=[EmailAddress(address=user.email,displayName=user.email)],
-                    bcc=[EmailAddress(address=os.getenv('RECIPENTS_ADDRESS'),displayName=os.getenv('RECIPENTS_ADDRESS'))]
-                    ),
-                senderAddress=os.getenv('SENDER_ADDRESS'),
-            )
+            background_tasks.add_task(purchased_complete, user.email,user.email,order_id,dt,content.title,int(content.price),content.content_html)
+            # email_manager=EmailManager()
+            # purchased_order_reply=EmailRequest(
+            #     content=EmailContent.purchased_order(
+            #         name=user.email,
+            #         order_id=order_id,
+            #         order_date=dt.strftime('%Y年%m月%d日 %H時%M分'),
+            #         content_title=content.title,
+            #         price=str(int(content.price)),
+            #         payment_method="クレジットカード",
+            #         content_html=content.content_html,
+            #         ),
+            #     recipients=EmailRecipients(
+            #         to=[EmailAddress(address=user.email,displayName=user.email)],
+            #         bcc=[EmailAddress(address=os.getenv('RECIPENTS_ADDRESS'),displayName=os.getenv('RECIPENTS_ADDRESS'))]
+            #         ),
+            #     senderAddress=os.getenv('SENDER_ADDRESS'),
+            # )
 
-            poller = email_manager.client.begin_send(purchased_order_reply.model_dump())
-            mail_result = poller.result()
+            # poller = email_manager.client.begin_send(purchased_order_reply.model_dump())
+            # mail_result = poller.result()
 
     
-    return retsult
+    return result
 
 @router.post("/webhooks/singinsignup",tags=["webhooks"])
 async def webhook(azure_user: AzureUser=Body(...,description="azure user data")):

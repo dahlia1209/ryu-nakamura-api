@@ -85,3 +85,14 @@ def update_order_status(order_id:str,status: OrderStatus) :
         
     except Exception as e:
         raise ValueError(f"Error retrieving contents: {str(e)}")
+    
+def delete_order(order_id: str) -> bool:
+    """注文情報を削除する"""
+    try:
+        manager = TableConnectionManager()
+        manager.order_table.delete_entity(partition_key='order',row_key=order_id)
+        return True
+        
+    except Exception as e:
+        raise ValueError(f"Error deleting order: {str(e)}")
+    

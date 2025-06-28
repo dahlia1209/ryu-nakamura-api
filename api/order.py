@@ -7,13 +7,11 @@ from typing import Dict, Any,List,Optional
 from repository import user as user_repo
 from repository import content as content_repo
 from repository import order as order_repo
-from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_oid_matching
+from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_id_matching
 import uuid
 
 router = APIRouter()
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 
 @router.get("/orders", response_model=List[Order], tags=["orders"])
@@ -25,10 +23,10 @@ async def list_orders(
     token_data: JWTPayload  = Depends(requires_scope("orders.read"))
 ):
     """注文情報一覧を取得する"""
-    if not is_token_oid_matching(token_data,user_id):
+    if not is_token_id_matching(token_data,user_id):
             raise HTTPException(
                 status_code=403,
-                detail=f"user_id {user_id} とトークンのsubが一致しません"
+                detail=f"user_id {user_id} とトークンのidが一致しません"
             )
     qf=QueryFilter()
     qf.add_filter(f"user_id eq @user_id",{"user_id":user_id})
@@ -49,6 +47,7 @@ async def make_checkout_session(
         content=content_repo.get_content(str(order_item.content_id))
         order=Order(content=content,user=user,**order_item.model_dump())
         
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[order.to_line_item()],
@@ -89,7 +88,7 @@ async def get_order(
     try:
         order = order_repo.get_order(str(order_id))
         
-        if is_token_oid_matching(token_data,order.user.id):
+        if not is_token_id_matching(token_data,order.user.id):
             raise HTTPException(
                 status_code=403,
                 detail=f"指定されたID {order_id} の注文情報の取得権限がありません"
@@ -102,24 +101,20 @@ async def get_order(
             detail=f"指定されたID {order_id} の注文情報が見つかりません"
         )
 
-@router.put("/orders/{order_id}/status", response_model=OrderItem, tags=["orders"])
-async def update_order_status(
-    order_id: uuid.UUID = Path(..., description="User ID to update"),
-    status: OrderStatus = Body(..., description="Status to update"),
-    token_data = Depends(requires_scope("orders.write"))
+@router.delete("/orders/{order_id}", status_code=204,tags=["orders"])
+async def delete_order(
+    order_id: uuid.UUID = Path(..., description="Order ID to delete"),
+    token_data: JWTPayload  = Depends(requires_scope("orders.admin"))
 ):
-    """指定された注文IDのステータスを更新する"""
+    """指定されたIDの注文情報を削除する"""
     try:
-        result=order_repo.update_order_status(str(order_id),status)
-        if is_token_oid_matching(token_data,result.user_id):
-            raise HTTPException(
-                status_code=403,
-                detail=f"指定されたID {order_id} の注文情報の更新権限がありません"
-            )
+        order = order_repo.get_order(str(order_id))
+        order_repo.delete_order(str(order_id))
+        return True
+    
     except ValueError as e:
         raise HTTPException(
             status_code=404,
             detail=f"指定されたID {order_id} の注文情報が見つかりません"
         )
-    
-    return result
+
