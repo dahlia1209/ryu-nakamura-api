@@ -164,17 +164,18 @@ async def generate_contents_list(
         contents = content_repo.query_contents(qf)
 
         manager=BLOBConnectionManager()
+        contents_list = json.dumps([json.loads(c.to_preview().model_dump_json()) for c in contents])
+        
         blob_client = manager.client.get_blob_client(
                 container=os.getenv("AZURE_BLOB_CONTAINER_NAME","root"), 
                 blob=os.getenv("CONTENT_LIST_FILE_NAME"), 
         )
             
-        contents_list = json.dumps([json.loads(c.to_preview().model_dump_json()) for c in contents])
         blob_client.upload_blob(contents_list, overwrite=True)
-        return contents
+        return [c.to_preview().model_dump_json() for c in contents]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"コンテンツ一覧ファイル生成に失敗しました:{e}")
-    
+
     
     

@@ -13,6 +13,8 @@ class TableConnectionManager:
     contents_table:Optional['TableClient']=None
     user_table:Optional['TableClient']=None
     order_table:Optional['TableClient']=None
+    youtube_video_raw_table:Optional['TableClient']=None
+    youtube_video_report_table:Optional['TableClient']=None
     
     def __new__(cls):
         if cls._instance is None:
@@ -39,6 +41,8 @@ class TableConnectionManager:
                     cls._instance.contents_table = get_table_client("content",cls._instance.client)
                     cls._instance.user_table = get_table_client("user",cls._instance.client)
                     cls._instance.order_table = get_table_client("order",cls._instance.client)
+                    cls._instance.youtube_video_raw_table = get_table_client("youtube_video_raw",cls._instance.client)
+                    cls._instance.youtube_video_report_table = get_table_client("youtube_video_report",cls._instance.client)
                     
         return cls._instance
     

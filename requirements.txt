@@ -13,3 +13,4 @@ azure-identity
 requests
 beautifulsoup4
 azure-storage-blob
+google-api-python-client

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Body, Depends,Header,Request
 import stripe
 import os
+from pathlib import Path as PathlibPath
 from models.order import OrderItem,Order,OrderStatus,OrderResponse
 from models.query import QueryFilter
 from typing import Dict, Any,List,Optional
@@ -9,10 +10,11 @@ from repository import content as content_repo
 from repository import order as order_repo
 from managers.auth_manager import  JWTPayload,get_current_user,requires_scope,is_token_id_matching
 import uuid
+from managers.blob_manager import BLOBConnectionManager
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas,BlobClient
+import datetime
 
 router = APIRouter()
-
-
 
 @router.get("/orders", response_model=List[Order], tags=["orders"])
 async def list_orders(
@@ -20,6 +22,7 @@ async def list_orders(
     user_id:str= Query(...,description="Filter by user_id"),
     content_id:Optional[str]= Query(None,description="Filter by content_id"),
     status:Optional[OrderStatus]= Query(None,description="Filter by content_id"),
+    sas:Optional[bool]= Query(False,description="generate_sas_url"),
     token_data: JWTPayload  = Depends(requires_scope("orders.read"))
 ):
     """注文情報一覧を取得する"""
@@ -33,6 +36,14 @@ async def list_orders(
     qf.add_filter(f"content_id eq @content_id",{"content_id":content_id})
     qf.add_filter(f"checkout_status eq @status",{"status":status})
     orders = order_repo.query_orders(qf,limit)
+    if sas:
+        for order in orders:
+            if not order.content.full_speech_url:
+                continue
+            filename = PathlibPath(order.content.full_speech_url).name
+            manager=BLOBConnectionManager()
+            sas_url=await manager.generate_sas_url(f"{os.getenv('CONTENT_SPEECH_FILE_DIR')}/{filename}")
+            order.content.full_speech_url=sas_url
     return orders
 
 @router.post("/orders/checkout", response_model=OrderResponse, status_code=201, tags=["orders"])

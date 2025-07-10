@@ -22,6 +22,9 @@ class Content(BaseModel):
     publish_date: datetime
     preview_text_length: int = 100
     note_url: Optional[str] = None
+    preview_speech_url: Optional[str] = None
+    full_speech_url: Optional[str] = None
+    preview_moovie_url: Optional[str] = None
 
     model_config = {
         "from_attributes": True
@@ -61,7 +64,7 @@ class Content(BaseModel):
         remaining_text = all_text.replace(preview_text, '', 1)  # 最初の一致のみ削除
         remaining_text_length = len(remaining_text)
         
-        return PreviewContent(**self.model_dump(),preview_html=preview_html,preview_text=preview_text,remaining_text_length=remaining_text_length)
+        return PreviewContent(**self.model_dump(exclude={"full_speech_url"}),preview_html=preview_html,preview_text=preview_text,remaining_text_length=remaining_text_length)
             
 
 class PreviewContent(BaseModel):
@@ -77,6 +80,8 @@ class PreviewContent(BaseModel):
     publish_date: datetime
     remaining_text_length: int 
     note_url: Optional[str] = None
+    preview_speech_url: Optional[str] = None
+    preview_moovie_url: Optional[str] = None
             
 
 
@@ -94,6 +99,9 @@ class ContentTableEntity(BaseModel):
     publish_date: Optional[str] =  None
     preview_text_length: Optional[int] = None
     note_url: Optional[str] = None
+    preview_speech_url: Optional[str] = None
+    full_speech_url: Optional[str] = None
+    preview_moovie_url: Optional[str] = None
     
     # Content モデルに変換するメソッド
     def to_content(self) -> Content:
