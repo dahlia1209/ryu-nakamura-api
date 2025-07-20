@@ -15,6 +15,7 @@ class TableConnectionManager:
     order_table:Optional['TableClient']=None
     youtube_video_raw_table:Optional['TableClient']=None
     youtube_video_report_table:Optional['TableClient']=None
+    trends24_item_raw_table:Optional['TableClient']=None
     
     def __new__(cls):
         if cls._instance is None:
@@ -43,6 +44,7 @@ class TableConnectionManager:
                     cls._instance.order_table = get_table_client("order",cls._instance.client)
                     cls._instance.youtube_video_raw_table = get_table_client("youtube_video_raw",cls._instance.client)
                     cls._instance.youtube_video_report_table = get_table_client("youtube_video_report",cls._instance.client)
+                    cls._instance.trends24_item_raw_table = get_table_client("trends24_item_raw",cls._instance.client)
                     
         return cls._instance
     

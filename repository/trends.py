@@ -3,6 +3,7 @@ from azure.identity import DefaultAzureCredential
 from azure.core.exceptions import ResourceExistsError
 from managers.table_manager import TableConnectionManager
 from models.youtube import YouTubeVideoTableEntity,YouTubeVideo
+from models.trends24 import Trends24DataTableEntity,Trends24Data
 from models.query import QueryFilter
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -10,7 +11,7 @@ import json
 import uuid
 from pydantic import BaseModel, Field, EmailStr
 
-def query_contents(
+def query_youtube_videos(
         query_filter:QueryFilter,
         limit: int = 50,
     ) -> List[YouTubeVideoTableEntity]:
@@ -50,6 +51,33 @@ def create_youtube_video(youtube: YouTubeVideo, rank:int,PartitionKey: str ) -> 
         
     except Exception as e:
         raise ValueError(f"Error retrieving youtube_video_raw: {str(e)}")
+    
+def create_trends24_item(trends24_item: Trends24DataTableEntity) -> bool:
+    """trends24の作成"""
+
+    try:
+        manager = TableConnectionManager()
+        manager.trends24_item_raw_table.create_entity(trends24_item.model_dump())
+        return True
+        
+    except Exception as e:
+        raise ValueError(f"Error retrieving youtube_video_raw: {str(e)}")
+    
+def query_trends24_item(
+        query_filter:QueryFilter,
+        limit: int = 50,
+    ) -> List[Trends24DataTableEntity]:
+    
+    try:
+        manager = TableConnectionManager()
+        
+        entities = list(manager.trends24_item_raw_table.query_entities(**query_filter.model_dump(),results_per_page=limit))
+        table_entities=[Trends24DataTableEntity.from_entity(e) for e in entities]
+        
+        return table_entities
+        
+    except Exception as e:
+        raise ValueError(f"Error retrieving contents: {str(e)}")
 
 # def update_content(content: Content) -> bool:
 #     """コンテンツの作成"""
