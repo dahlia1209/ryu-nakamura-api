@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Path, Body,Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Optional
-from models.content import Content
+from models.content import Content,PreviewContent
 from managers.auth_manager import (
     JWTPayload,
     get_current_user,
@@ -154,7 +154,7 @@ async def delete_content_item(
     return contents[0]
 
 
-@router.put("/contents/process/generate_contents_list", response_model=List[Content], tags=["contents"])
+@router.put("/contents/process/generate_contents_list", response_model=List[PreviewContent], tags=["contents"])
 async def generate_contents_list(
     token_data: JWTPayload = Depends(requires_scope("contents.read")),
 ):
@@ -172,7 +172,7 @@ async def generate_contents_list(
         )
             
         blob_client.upload_blob(contents_list, overwrite=True)
-        return [c.to_preview().model_dump_json() for c in contents]
+        return [c.to_preview().model_dump() for c in contents]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"コンテンツ一覧ファイル生成に失敗しました:{e}")

@@ -9,6 +9,7 @@ func start
 C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhooks
 ```
 
+
 ## テスト
 
 ```sh
@@ -45,15 +46,24 @@ cd /mnt/c/src/ryu-nakamura-api
 claude
 ```
 
+### コンテンツ公開手順
+・検証API(api-local)でコンテンツ登録
+・コンテンツファイル＋音声合成生成（local pv、local gaの組み合わせ2パターン）
+・検証環境確認
+・商用APIでコンテンツ登録
+・コンテンツファイル＋音声合成生成（production pv, production gaの組み合わせ2パターン）
+・サイト商用デプロイ
+
 
 ### 音声合成
 ```sh
 #docker起動
-#docker run --rm  -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
-docker run --rm -d -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
-#音声合成
-python C:\src\ryu-nakamura-api\work\make_voice.py local pv
-#python C:\src\ryu-nakamura-api\work\make_voice.py production 
+docker run --rm  -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
+#音声合成(新しいターミナルで)
+.venv\Scripts\activate
+cd C:\src\ryu-nakamura-api\work
+python C:\src\ryu-nakamura-api\work\make_voice.py local pv {title_no}
+#python C:\src\ryu-nakamura-api\work\make_voice.py production ga
 #docker停止
-docker stop voicevox-engine
+# docker stop voicevox-engine
 ```

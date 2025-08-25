@@ -124,7 +124,7 @@ class YouTubeVideoTableEntity(BaseModel):
         channel_id = youtube.snippet.channelId
         title = youtube.snippet.title
         description = youtube.snippet.description
-        thumbnail_url = youtube.snippet.thumbnails.default.url
+        thumbnail_url = youtube.snippet.thumbnails.high.url
         channel_title = youtube.snippet.channelTitle
         tags = json.dumps(youtube.snippet.tags, ensure_ascii=False) if youtube.snippet.tags else "[]"
         category_id = str(youtube.snippet.categoryId)
