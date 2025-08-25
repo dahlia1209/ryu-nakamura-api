@@ -88,12 +88,14 @@ def test_get_purchased_orders(auth_headers):
             headers=auth_headers,
             params={'user_id':user_id,'sas':str(True)}
         )
-    print(response.json())
     assert response.status_code==200
     order_response=[Order(**order) for order in response.json()]
     assert len(order_response)==1
     assert str(order_response[0].content.id)=="769eb42a-710c-4faa-98cb-78d21713b8ee"
-    sas_response=requests.get(order_response[0].content.full_speech_url)
+    sas_req_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    sas_response=requests.get(order_response[0].content.full_speech_url, headers=sas_req_headers)
     assert sas_response.status_code==200
     
 def test_post_process(test_post):

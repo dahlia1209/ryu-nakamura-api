@@ -24,7 +24,9 @@ class Content(BaseModel):
     note_url: Optional[str] = None
     preview_speech_url: Optional[str] = None
     full_speech_url: Optional[str] = None
-    preview_moovie_url: Optional[str] = None
+    preview_movie_url: Optional[str] = None
+    meta_description:Optional[str]=None
+    
 
     model_config = {
         "from_attributes": True
@@ -82,6 +84,7 @@ class PreviewContent(BaseModel):
     note_url: Optional[str] = None
     preview_speech_url: Optional[str] = None
     preview_moovie_url: Optional[str] = None
+    meta_description:Optional[str]=None
             
 
 
@@ -102,6 +105,7 @@ class ContentTableEntity(BaseModel):
     preview_speech_url: Optional[str] = None
     full_speech_url: Optional[str] = None
     preview_moovie_url: Optional[str] = None
+    meta_description:Optional[str]=None
     
     # Content モデルに変換するメソッド
     def to_content(self) -> Content:
