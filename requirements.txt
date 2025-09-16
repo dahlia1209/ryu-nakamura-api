@@ -14,3 +14,6 @@ requests
 beautifulsoup4
 azure-storage-blob
 google-api-python-client
+bitcoinutils
+bech32
+
