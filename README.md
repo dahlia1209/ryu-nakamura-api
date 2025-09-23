@@ -47,12 +47,14 @@ claude
 ```
 
 ### コンテンツ公開手順
+・サムネイル画像変換、アップロード
 ・検証API(api-local)でコンテンツ登録
 ・コンテンツファイル＋音声合成生成（local pv、local gaの組み合わせ2パターン）
 ・検証環境確認
 ・商用APIでコンテンツ登録
 ・コンテンツファイル＋音声合成生成（production pv, production gaの組み合わせ2パターン）
 ・サイト商用デプロイ
+・ツイート
 
 
 ### 音声合成
@@ -66,4 +68,11 @@ python C:\src\ryu-nakamura-api\work\make_voice.py local pv {title_no}
 #python C:\src\ryu-nakamura-api\work\make_voice.py production ga
 #docker停止
 # docker stop voicevox-engine
+```
+
+### サムネイル画像形式変換
+```sh
+cd C:\src\ryu-nakamura-api
+.venv\Scripts\activate
+python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Downloads\0007.jpg" 0007.webp
 ```

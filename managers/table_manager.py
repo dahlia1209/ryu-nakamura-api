@@ -16,6 +16,10 @@ class TableConnectionManager:
     youtube_video_raw_table:Optional['TableClient']=None
     youtube_video_report_table:Optional['TableClient']=None
     trends24_item_raw_table:Optional['TableClient']=None
+    address_table:Optional['TableClient']=None
+    coin_transaction_table:Optional['TableClient']=None
+    coin_transaction_vin_table:Optional['TableClient']=None
+    coin_transaction_output_table:Optional['TableClient']=None
     
     def __new__(cls):
         if cls._instance is None:
@@ -45,6 +49,10 @@ class TableConnectionManager:
                     cls._instance.youtube_video_raw_table = get_table_client("youtube_video_raw",cls._instance.client)
                     cls._instance.youtube_video_report_table = get_table_client("youtube_video_report",cls._instance.client)
                     cls._instance.trends24_item_raw_table = get_table_client("trends24_item_raw",cls._instance.client)
+                    cls._instance.address_table = get_table_client("address",cls._instance.client)
+                    cls._instance.coin_transaction_table = get_table_client("coin_transaction",cls._instance.client)
+                    cls._instance.coin_transaction_vin_table = get_table_client("coin_transaction_vin",cls._instance.client)
+                    cls._instance.coin_transaction_output_table = get_table_client("coin_transaction_output",cls._instance.client)
                     
         return cls._instance
     
