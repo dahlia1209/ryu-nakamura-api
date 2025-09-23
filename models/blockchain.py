@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature, encode_dss_signature,Prehashed
 import hashlib
-import hmac
 
 class BaseBitcoinEntity(BaseModel):
     """Bitcoin関連の基底クラス"""
