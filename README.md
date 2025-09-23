@@ -5,8 +5,11 @@ cd C:\src\ryu-nakamura-api
 .venv\Scripts\activate
 func start
 
-# webhookをローカルでリッスン
-C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhooks
+## mac
+cd /Users/bizd2/src/ryu-nakamura-api
+source .venv/bin/activate
+func start
+
 ```
 
 
@@ -76,3 +79,32 @@ cd C:\src\ryu-nakamura-api
 .venv\Scripts\activate
 python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Downloads\0007.jpg" 0007.webp
 ```
+
+
+### セットアップ(Mac)
+・VSCODEダウンロード、起動
+・source controlを開き、Gitダウンロード、その後vscodeでgithubログイン
+・functionをインストール
+```sh
+brew tap azure/functions
+brew install azure-functions-core-tools@4
+# if upgrading on a machine that has 2.x or 3.x installed:
+brew link --overwrite azure-functions-core-tools@4
+```
+・Pythonをインストール
+```sh
+brew install python
+```
+・仮想環境をインストール
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+・起動
+```sh
+func start
+```
+
+
+
