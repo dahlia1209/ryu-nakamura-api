@@ -23,6 +23,32 @@ from datetime import datetime
 
 router = APIRouter()
 
+@router.post("/blockchain/address", tags=["blockchain"])
+async def create_address(
+    address:Address=Body(
+        default_factory=lambda:Address(),
+        examples=[{
+        "id": uuid.uuid4()
+    }]),
+    start_with:List[str]=Body([],)
+):
+    for i in  range(10000):
+        
+        ba=Address.generate_address(address.id,address.private_key)
+        blockchain_repo.create_address(ba)
+        if not start_with:
+            return ba
+        for s in start_with:
+            if ba.public_key.startswith(s):
+                print(f"試行回数:{i+1}")
+                return ba
+        continue
+    
+    raise HTTPException(
+        status_code=400,
+        detail=f"'{start_with}' から始まる公開鍵を生成できませんでした"
+    )
+
 @router.post("/blockchain/mining", tags=["blockchain"])
 async def generate_block(
     bits:str=Body("1d00ffff"),
