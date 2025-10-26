@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature, encode_dss_signature,Prehashed
 import hashlib
-import hmac
 
 class BaseBlockchainEntity(BaseModel):
     """ブロックチェーンの基底クラス"""
@@ -100,12 +99,12 @@ class BlockHeader(BaseBlockchainEntity):
     """
     ビットコインブロックヘッダーを表すPydanticモデル
     """
-    version: int = Field(..., ge=1, le=2**32 - 1, description="ブロックバージョン番号",example=1)
-    previous_hash: str = Field(..., min_length=64, max_length=64, description="前のブロックのハッシュ値（16進数文字列）",example="0000000000000000000000000000000000000000000000000000000000000000")
-    merkle_root: str = Field(..., min_length=64, max_length=64, description="マークルルートハッシュ（16進数文字列）",example="4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b")
-    timestamp: int = Field(..., description="ブロック作成時のUnixタイムスタンプ", ge=0,example=1231006505)
-    bits: int = Field(..., description="難易度ターゲット（コンパクト形式）", ge=0, le=2**32 - 1,example=486604799)
-    nonce: int = Field(..., ge=0, le=2**32 - 1, description="プルーフオブワークで使用されるナンス値",example=2083236893)
+    version: int = Field(..., ge=1, le=2**32 - 1, description="ブロックバージョン番号")
+    previous_hash: str = Field(..., min_length=64, max_length=64, description="前のブロックのハッシュ値（16進数文字列）")
+    merkle_root: str = Field(..., min_length=64, max_length=64, description="マークルルートハッシュ（16進数文字列）")
+    timestamp: int = Field(..., description="ブロック作成時のUnixタイムスタンプ", ge=0)
+    bits: int = Field(..., description="難易度ターゲット（コンパクト形式）", ge=0, le=2**32 - 1,)
+    nonce: int = Field(..., ge=0, le=2**32 - 1, description="プルーフオブワークで使用されるナンス値")
 
     @field_validator('previous_hash', 'merkle_root')
     @classmethod
@@ -352,7 +351,7 @@ class TransactionOutput(BaseBlockchainEntity):
         
 
 class TransactionStackItem(BaseBlockchainEntity):
-    item:str= Field(...,description="The data to be pushed on to the stack (16進数文字列)",example="")
+    item:str= Field(...,description="The data to be pushed on to the stack (16進数文字列)")
     
     def serialize(self):
         size = self.encode_varint(self.item).hex()
