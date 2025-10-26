@@ -89,7 +89,23 @@ def create_block(block: Block) -> bool:
         
     except Exception as e:
         raise
+
+def query_transaction(
+        query_filter:QueryFilter,
+        limit: int = 50,):
+    try:
+        manager = TableConnectionManager()
+        
+        entities=manager.blockchain_transaction_table.query_entities(**query_filter.model_dump(),results_per_page=limit)
+        txids=[TransactionTableEntity.from_entity(e).RowKey for e in entities]
+        
+        
+        return txids
     
+    except ResourceNotFoundError as e:
+        print(f"エンティティが見つかりません: {e}")
+        return None
+
 def get_transaction(transaction_id:str):
     try:
         manager = TableConnectionManager()

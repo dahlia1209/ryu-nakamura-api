@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import List, Optional,Literal,Dict, Any
 import uuid
 import struct
-import binascii
 from bitcoinutils.setup import setup
 from bitcoinutils.keys import PrivateKey, PublicKey, P2wpkhAddress, P2wshAddress, P2shAddress,b58encode,b58decode,sigencode_der,ripemd160
 from bitcoinutils.script import Script
@@ -24,7 +23,7 @@ class BaseBlockchainEntity(BaseModel):
     
     def calculate_hash(self, hex: str,is_reverse:bool=True) -> str:
         """ハッシュ値を計算"""
-        binary_data = binascii.unhexlify(hex)
+        binary_data = bytes.fromhex(hex)
         hash1 = hashlib.sha256(binary_data).digest()
         hash2 = hashlib.sha256(hash1).digest()
         if is_reverse:
@@ -150,7 +149,7 @@ class BlockHeader(BaseBlockchainEntity):
         """
         ブロックヘッダーのハッシュ値を計算
         """
-        binary_data = binascii.unhexlify(self.get_preprocessing_data())
+        binary_data = bytes.fromhex(self.get_preprocessing_data())
         return self.calculate_double_hash256(binary_data)
 
 class TransactionScriptSignature(BaseModel):
@@ -169,6 +168,7 @@ class TransactionInput(BaseBlockchainEntity):
     txinwitness:Optional[List[str]]=None
     sequence:int= Field(..., ge=1, le=2**32 - 1, description="シーケンス番号 (通常は0xffffffff = 4294967295)")
     raw_data:Optional[str]=None
+    pkh:Optional[str]=None
     
     def vout_to_hex(self):
         return struct.pack('<I', self.vout).hex()
@@ -487,7 +487,7 @@ class Transaction(BaseBlockchainEntity):
         SegWitでもLegacy形式で計算（witnessデータ除外）
         """
         legacy_data = self.get_legacy_transaction_data()
-        binary_data = binascii.unhexlify(legacy_data)
+        binary_data = bytes.fromhex(legacy_data)
         return self.calculate_double_hash256(binary_data)
     
     def calculate_wtxid(self) -> str:
@@ -500,7 +500,7 @@ class Transaction(BaseBlockchainEntity):
             return self.calculate_txid()
             
         segwit_data = self.get_segwit_transaction_data()
-        binary_data = binascii.unhexlify(segwit_data)
+        binary_data = bytes.fromhex(segwit_data)
         return self.calculate_double_hash256(binary_data)
     
     def sighash_to_hex(self):
@@ -746,7 +746,7 @@ class Block(BaseBlockchainEntity):
                 right = txids[i + 1] if i + 1 < len(txids) else left
                 
                 combined = self.reverse_bytes(left) + self.reverse_bytes(right)
-                hash_result = self.calculate_double_hash256(binascii.unhexlify(combined))
+                hash_result = self.calculate_double_hash256(bytes.fromhex(combined))
                 next_level.append(hash_result)
             
             txids = next_level
@@ -835,7 +835,7 @@ class Address(BaseBlockchainEntity):
         pre_hash160="00"+to_hash160
         cksum=self.calculate_hash(pre_hash160,False)
         raw_data=pre_hash160+cksum[:8]
-        p2pkhaddress=b58encode(binascii.unhexlify(raw_data)).decode()
+        p2pkhaddress=b58encode(bytes.fromhex(raw_data)).decode()
         return p2pkhaddress
     
     def calculate_p2wpkhaddress(self):
@@ -844,15 +844,13 @@ class Address(BaseBlockchainEntity):
         
         pk = PrivateKey(b=bytes.fromhex(self.private_key))
         to_hash160 = pk.get_public_key().to_hash160()
-        all_bits = "".join([format(byte, '08b') for byte in binascii.unhexlify(to_hash160)])
+        all_bits = "".join([format(byte, '08b') for byte in bytes.fromhex(to_hash160)])
         five_bit_groups = []
         for i in range(0, len(all_bits), 5):
             five_bit_group = all_bits[i:i+5]
             five_bit_groups.append(int(five_bit_group, 2))
         
         data_for_checksum = [0] + five_bit_groups
-        # checksum = bech32.bech32_create_checksum(hrp="bc", data=data_for_checksum)
-        # encode_tar=data_for_checksum+checksum
         
         bech32_data=bech32.bech32_encode(hrp="bc",data=data_for_checksum)
         
@@ -879,12 +877,18 @@ class Address(BaseBlockchainEntity):
                 return
             
             decode_str=b58decode(self.p2pkh_address).hex()
-            ##todo チェックサム検証
+
             prefix = decode_str[:2]       
             hash160 = decode_str[2:42]      
-            checksum = decode_str[42:]       
+            checksum = decode_str[42:]   
             
-            ##
+            ##チェックサム検証
+            checksum_data=self.calculate_hash(prefix+hash160,is_reverse=False)[:8]
+            if checksum_data!=checksum:
+                print(f"アドレス値のチェックサムが不正です")
+                return
+            
+            ##["OP_DUP","OP_HASH160","OP_PUSHBYTES_20","{hash160}","OP_EQUALVERIFY","OP_CHECKSIG"]
             scriptpubkey="76a914"+hash160+"88ac"
             return scriptpubkey
             
@@ -1022,6 +1026,17 @@ class Address(BaseBlockchainEntity):
         
         return r_value, s_value
 
+    @classmethod
+    def from_address(cls,address:str):
+        instance=cls()
+        
+        if address.startswith("1"):
+            instance.p2pkh_address=address
+            return instance
+        elif address.startswith("3"):
+            return instance
+        else:
+            raise
     
         
 class AddressTableEnitity(BaseModel):

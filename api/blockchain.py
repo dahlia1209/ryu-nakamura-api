@@ -117,6 +117,40 @@ async def generate_block(
     return Block.generate_block(block)
 
 
+##後で削除 なにこれ？
+@router.get("/blockchain/address", tags=["blockchain"],response_model=Address)
+async def get_address(
+    address: str=Query(..., description="address to get")
+):
+    try:
+        addr=Address.from_address(address)
+        scriptpubkey=addr.get_scriptpubkey()
+        
+        # ba=blockchain_repo.get_address(str(address_id))
+        # if ba is None:
+        #     raise HTTPException(
+        #         status_code=404,
+        #         detail=f"指定されたID {address_id} のデータが見つかりません"
+        #     )
+            
+        return addr
+
+    except HTTPException:
+        raise
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不正なパラメータ形式です: {e}"
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="内部サーバーエラーが発生しました"
+        )
+
+
 @router.post("/blockchain/address", tags=["blockchain"])
 async def create_address(
     address:Address=Body(
@@ -491,6 +525,50 @@ async def create_transaction(
         raise HTTPException(
             status_code=500,
             detail=f"エラーがスローされました:{e}.\nトレース情報:{tb_str}",
+        )
+
+# なにこれ？
+@router.get("/blockchain/transaction/txid", tags=["blockchain"])
+async def get_transaction(
+   address: list[str] = Query(default=[]),
+):
+    try:
+        
+        addr=Address.from_address(address)
+        scriptpubkey=addr.get_scriptpubkey()
+        
+        results:List[Transaction]=[]
+        if not address:
+            raise HTTPException(status_code=400,detail=f"addressは1つ以上指定してください")
+        elif len(address)>10:
+            raise HTTPException(status_code=400,detail=f"addressの数は10以下にしてください")
+        
+        qf=QueryFilter()
+        for a in address:
+            qf.add_filter(f"category eq @category", {"category": category})
+        tran = blockchain_repo.query_transaction(str(transaction_id))
+        if tran is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"指定されたID {transaction_id} のトランザクションが見つかりません"
+            )
+        
+        return tran
+
+    except HTTPException:
+        raise
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不正なトランザクションID形式です: {e}"
+        )
+    
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"エラーがスローされました:{e}.\nトレース情報:{tb_str}"
         )
 
 @router.get("/blockchain/transaction/{transaction_id}", tags=["blockchain"])
