@@ -10,17 +10,23 @@ cd /Users/bizd2/src/ryu-nakamura-api
 source .venv/bin/activate
 func start
 
+#ウェブフック起動
+C:\src\ryu-nakamura-api\.venv\stripe.exe login
+C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhooks
+
 ```
 
 
 ## テスト
 
 ```sh
+# C:\src\ryu-nakamura-api\.venv\stripe.exe login 90日ごとに更新が必要
 cd C:\src\ryu-nakamura-api\tests
 pytest -v
 ```
 
 ## デプロイ
+
 ```sh
 az functionapp config appsettings delete --name nakamura-fa --resource-group nakamura-rg --setting-names  ENABLE_ORYX_BUILD SCM_DO_BUILD_DURING_DEPLOYMENT
 az functionapp config appsettings delete --name nakamura-fa-local --resource-group nakamura-rg --setting-names  ENABLE_ORYX_BUILD SCM_DO_BUILD_DURING_DEPLOYMENT
