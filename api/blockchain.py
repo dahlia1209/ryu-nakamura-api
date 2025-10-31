@@ -55,7 +55,7 @@ async def generate_block(
     txids:List[str]=Body([]),
     to_scriptpubkey:str=Body(...,examples=["76a9147fc9ea0badb18a27533949c1c60e629fe0d6250988ac"]),
     locktime:int=Body(0),
-    time: Optional[int] = Body(None,example=[])
+    time: Optional[int] = Body(None)
 ):
     try:
         if not time:
