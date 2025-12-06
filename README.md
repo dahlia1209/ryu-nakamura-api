@@ -62,13 +62,13 @@ claude
 ・検証環境確認
 ・商用APIでコンテンツ登録
 ・コンテンツファイル＋音声合成生成（production pv, production gaの組み合わせ2パターン）
-・サイト商用デプロイ
+・サイトマップ更新+サイト商用デプロイ
 ・ツイート
 
 
 ### 音声合成
 ```sh
-#docker起動
+#docker desktop起動
 docker run --rm  -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
 #音声合成(新しいターミナルで)
 .venv\Scripts\activate
@@ -111,6 +111,14 @@ pip install -r requirements.txt
 ```sh
 func start
 ```
+
+## 便利ツール
+python blockchair_downloader.py transactions 20090103 20090112      # DL
+python blockchair_merger.py blocks -i ./blockchair_data   #展開&マージ
+python blockchair_bulk_insert.py inputs -d blockchain -t inputs -f .\merged_data\blockchair_bitcoin_inputs_merged_20251205_230030.tsv -p P@ssw0rd! #Bulk insert
+python export_json.py -p "P@ssw0rd!" -o ./json_data --pretty #JSON出力
+python post_blocks.py -f .\json_data\blockchain_20251206_000656.json --start 174 --limit 10 
+
 
 
 
