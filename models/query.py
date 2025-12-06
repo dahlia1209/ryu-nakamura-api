@@ -13,6 +13,10 @@ class QueryFilter(BaseModel):
     parameters:Dict[str, Any]={}
     
     def add_filter(self,filter:str,param:Dict[str, Any],operator:Literal['and','or']='and'):
+        """
+        Examples:
+            >>> add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": "01234"})
+        """
         def query_filter_append(val:str):
             if self.query_filter:
                 self.query_filter+=f" {operator} {val}"
