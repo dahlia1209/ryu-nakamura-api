@@ -83,7 +83,7 @@ python C:\src\ryu-nakamura-api\work\make_voice.py local pv {title_no}
 ```sh
 cd C:\src\ryu-nakamura-api
 .venv\Scripts\activate
-python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Downloads\0007.jpg" 0007.webp
+python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Downloads\0010.jpg" 0010.webp
 ```
 
 
@@ -119,6 +119,8 @@ python blockchair_bulk_insert.py inputs -d blockchain -t inputs -f .\merged_data
 python export_json.py -p "P@ssw0rd!" -o ./json_data --pretty #JSON出力
 python post_blocks.py -f .\json_data\blockchain_20251206_000656.json --start 174 --limit 10 
 
+ssh instance-20251207-1807
+cd blockchain-project/
 
 
 

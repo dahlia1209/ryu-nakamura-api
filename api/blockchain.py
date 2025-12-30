@@ -7,9 +7,38 @@ from managers.auth_manager import (
     JWTPayload,
     requires_scope,
 )
+from typing import Optional,List
 
 router = APIRouter()
 
+@router.get("/blockchain/block", tags=["blockchain"])
+async def get_block(
+    hash:Optional[str]=Query(None,max_length=64,min_length=64),
+    height:Optional[int]=Query(None)
+):
+    try:
+        #hash または heightが指定されていなければエラー
+        if (hash is None) == (height is None):
+            raise ValueError(f"hashとheightはどちらかを指定してください。hash:{hash}, height:{height}") 
+        if hash is not None:
+            block=blockchain_repo.get_block("HISTORY",hash)
+            if block is None:
+                raise ValueError(f"指定したhashのブロックは存在しません. hash:{hash}")
+            else:
+                return block
+        elif height is not None:
+            block=blockchain_repo.get_block_by_height(height)
+            if block is None:
+                raise ValueError(f"指定したheightのブロックは存在しません. hash:{height}")
+            else:
+                return block
+
+    except ValueError as e:
+        raise HTTPException(status_code=400,detail=f"{e}")
+    except Exception  as e:
+        raise HTTPException(status_code=500,detail=f"{e}")
+    finally:
+        pass
 
 @router.post("/blockchain/block", tags=["blockchain"])
 async def generate_block(
@@ -127,7 +156,7 @@ async def get_block_current():
         pass
 
 @router.delete("/blockchain/block/current", tags=["blockchain"])
-async def get_block_current(
+async def delete_block_current(
     token_data: JWTPayload = Depends(requires_scope("blockchain.delete")),
 ):
     try:
@@ -141,6 +170,54 @@ async def get_block_current(
     finally:
         pass
 
+@router.get("/blockchain/block/list", tags=["blockchain"])
+async def get_block(
+    start_height: Optional[int] = Query(None, ge=0),
+    end_height: Optional[int] = Query(None, ge=0)
+):
+    try:
+        MAX_BLOCKS = 100
+        if start_height is None and end_height is None:
+            current_block_entity = blockchain_repo.get_block_entity("CURRENT", "0" * 64)
+            if current_block_entity is None:
+                return []
+            eh = current_block_entity.height
+            sh = max(0, eh - (MAX_BLOCKS - 1))
+            
+        elif start_height is None:
+            eh = end_height
+            sh = max(0, eh - (MAX_BLOCKS - 1))
+            
+        elif end_height is None:
+            sh = start_height
+            eh = start_height + (MAX_BLOCKS - 1)
+            
+        else:
+            # 両方指定
+            if start_height > end_height:
+                raise ValueError(
+                    f"start_heightはend_height以下を指定してください。"
+                    f"指定値: start_height={start_height}, end_height={end_height}"
+                )
+            
+            if end_height - start_height >= MAX_BLOCKS:
+                max_start = max(0, end_height - (MAX_BLOCKS - 1))
+                raise ValueError(
+                    f"最大検索数は{MAX_BLOCKS}件です。"
+                    f"start_heightは{max_start}～{end_height}を指定してください。"
+                    f"指定値: start_height={start_height}, end_height={end_height}"
+                )
+            sh = start_height
+            eh = end_height
+        
+        # ブロックの取得
+        blocks = blockchain_repo.get_block_entities_in_range(sh, eh)
+        return blocks
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="内部サーバーエラーが発生しました")
 
 @router.post("/blockchain/transaction", tags=["blockchain"])
 async def post_transaction(

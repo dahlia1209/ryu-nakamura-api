@@ -6,6 +6,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.data.tables import EntityProperty, EdmType
 from cryptography.hazmat.primitives.asymmetric import ec
 from utils.blockchain import execute_script
+import os
 
 #utilyty
 def int_to_int64(entity_dict: dict) -> dict:
@@ -42,6 +43,46 @@ def get_block(partition_type:PartitionType,row_key:str):
         
     except Exception as e:
         raise
+    
+def get_block_by_height(height:int)->Block:
+    try:
+        qf=QueryFilter()
+        qf.add_filter(f"height eq {height}L")
+        qf.add_filter(f"PartitionKey eq 'HISTORY'")
+        block_entities=query_block_entity(qf)
+        if not block_entities:
+            return None
+        elif len(block_entities)>1:
+            raise Exception("指定されたheightのブロックが複数存在します。")
+        block_entity=block_entities[0]
+        block=get_block("HISTORY",block_entity.hash)
+
+        return block
+    
+    except ResourceNotFoundError as e:
+        print(f"エンティティが見つかりません: {e}")
+        return None
+        
+    except Exception as e:
+        raise
+
+def get_block_entities_in_range(start_height:int,end_height:int)->List[BlockEntity]:
+    try:
+        qf=QueryFilter()
+        qf.add_filter(f"height ge {start_height}L")
+        qf.add_filter(f"height le {end_height}L")
+        qf.add_filter(f"PartitionKey eq 'HISTORY'")
+        block_entities=query_block_entity(qf)
+        if not block_entities:
+            return []        
+        return block_entities
+    
+    except ResourceNotFoundError as e:
+        print(f"エンティティが見つかりません: {e}")
+        return None
+        
+    except Exception as e:
+        raise
 
 def get_block_entity(partition_type:PartitionType,row_key:str):
     try:
@@ -61,6 +102,25 @@ def get_block_entity(partition_type:PartitionType,row_key:str):
         
     except Exception as e:
         raise
+    
+def query_block_entity(query_filter: QueryFilter):
+    try:
+        manager = TableConnectionManager()
+        
+        table_entities = manager.blockchain_block_table.query_entities(**query_filter.model_dump(exclude_none=True))
+        results = [BlockEntity.model_validate(unwrap_entity_properties(e)) for e in table_entities]
+        
+        return results
+        
+    except ResourceNotFoundError as e:
+        print(f"エンティティが見つかりません: {e}")
+        return None
+        
+    except Exception as e:
+        print(f"Query error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def create_block(block: Block) :
     try:
@@ -68,6 +128,13 @@ def create_block(block: Block) :
 
         current_block = get_block_entity("CURRENT", "0"*64)
 
+        #BITS check
+        BLOCKCHAIN_BITS=os.getenv("BLOCKCHAIN_BITS")
+        if block.bits.upper() !=BLOCKCHAIN_BITS:
+            raise ValueError(
+                    f"BITSは{BLOCKCHAIN_BITS}を指定してください。指定されたBITS:{block.bits}"
+                )
+        
         #previous hash check
         if current_block is None:
             if block.previous_hash != "0" * 64:
@@ -82,6 +149,13 @@ def create_block(block: Block) :
         # vin utxo_txid check
         for t in block.transactions:
             if t.is_coinbase():
+                #SUBSIDY Check
+                BLOCKCHAIN_SUBSIDY=os.getenv("BLOCKCHAIN_SUBSIDY")
+                if t.outputs[0].value !=int(BLOCKCHAIN_SUBSIDY):
+                    raise ValueError(
+                            f"マイナー報酬は'{BLOCKCHAIN_SUBSIDY}'を指定してください。指定されたマイナー報酬:{str(t.outputs[0].value)}"
+                        )
+                
                 continue
             
             for i,vin in enumerate(t.vin):

@@ -1,13 +1,5 @@
 from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
-import hashlib
-import json
-import time
-from datetime import datetime
 from typing import List, Optional, Literal, Dict, Any
-import uuid
-import struct
-from azure.data.tables import EntityProperty, EdmType
-from cryptography.exceptions import InvalidSignature
 import bech32
 from utils.blockchain import (
     script_to_hex,
