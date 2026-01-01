@@ -154,12 +154,13 @@ class Block(Base):
 
 class Transaction(Base):
     txid: str = Field(..., min_length=64, max_length=64)
-    block_height: Optional[int] = Field(None, ge=0, le=2**16 - 1)
+    block_height: Optional[int] = Field(None, ge=0, le=2**32 - 1)
     block_hash: Optional[str] = Field(None, min_length=64, max_length=64)
     wtxid: Optional[str] = None
     version: int = Field(..., ge=1, le=2**32 - 1)
     size: Optional[int] = None
     weight: Optional[int] = None
+    fee: int = Field(0)
     locktime: int = Field(..., ge=0, le=2**32 - 1)
     vin: List["TransactionVin"] = Field(default_factory=list)
     outputs: List["TransactionOutput"] = Field(default_factory=list)
@@ -260,6 +261,7 @@ class TransactionVin(Base):
     utxo_txid: str = Field(..., min_length=64, max_length=64)
     utxo_vout: int = Field(..., ge=0, le=2**32 - 1)
     utxo_script_pubkey: Optional[str] = None
+    utxo_value: Optional[int] = None
     sequence: int = Field(..., ge=0, le=2**32 - 1)
     script_sig_asm: Optional[str] = None
     script_sig_hex: Optional[str] = None
@@ -338,6 +340,11 @@ class TransactionVin(Base):
         sequence_le = self.int_to_hex(self.sequence, 4)
         # 全てを連結
         return utxo_txid_le + utxo_vout_le + script_size + script_pubkey + sequence_le
+    
+    def get_utxo_value(self):
+        if self.utxo_value is None:
+            raise  ValueError(f"utxo_valueがセットされていません")
+        return self.utxo_value
 
 
 class TransactionOutput(Base):
@@ -406,12 +413,13 @@ class TransactionEntity(BaseModel):
     PartitionKey: str = Field(..., min_length=64, max_length=64)  # block hash
     RowKey: str = Field(..., min_length=64, max_length=64)  # txid
     txid: str = Field(..., min_length=64, max_length=64)
-    block_height: int = Field(..., ge=0, le=2**16 - 1)
+    block_height: int = Field(..., ge=0, le=2**32 - 1)
     block_hash: str = Field(..., min_length=64, max_length=64)
     wtxid: Optional[str] = None
     version: int = Field(..., ge=1, le=2**32 - 1)
     size: Optional[int] = None
     weight: Optional[int] = None
+    fee: int = Field(0)
     locktime: int = Field(..., ge=0, le=2**32 - 1)
 
 
@@ -422,6 +430,7 @@ class TransactionVinEntity(BaseModel):
     utxo_txid: str = Field(..., min_length=64, max_length=64)
     utxo_vout: int = Field(..., ge=0, le=2**32 - 1)
     utxo_script_pubkey: Optional[str] = None
+    utxo_value: Optional[int] = None
     sequence: int = Field(..., ge=0, le=2**32 - 1)
     script_sig_asm: str
     script_sig_hex: str

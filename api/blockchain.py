@@ -249,6 +249,51 @@ async def post_transaction(
 ):
     return transaction
 
+@router.post("/blockchain/transaction/mempool", tags=["blockchain"])
+async def post_transaction_mempool(
+    transaction: Transaction = Body(
+        ...,
+        examples=[
+            # 170 block HalFinny transaction
+            {
+                "txid": "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16",
+                "version": 1,
+                "locktime": 0,
+                "vin": [
+                {
+                    "utxo_txid": "0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9",
+                    "utxo_vout": 0,
+                    "sequence": 4294967295,
+                    "script_sig_hex": "47304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901"
+                }
+                ],
+                "outputs": [
+                {
+                    "value": 1000000000,
+                    "script_pubkey_hex": "4104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac"
+                },
+                {
+                    "value": 4000000000,
+                    "script_pubkey_hex": "410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac"
+                }
+                ]
+            }
+        ],
+    )
+):
+    try:
+        transaction.block_hash="0"*64
+        for vin in transaction.vin:
+            vin.spent_block_hash="0"*64
+        for output in transaction.outputs:
+            output.block_hash="0"*64
+        result=blockchain_repo.create_transaction_in_mempool(transaction)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"内部サーバーエラーが発生しました.error:{e}")
+
 
 @router.post("/blockchain/transaction/input", tags=["blockchain"])
 async def post_transaction_input(

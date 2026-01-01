@@ -16,7 +16,7 @@ class QueryFilter(BaseModel):
         """
         Examples:
             >>> add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": "01234"})
-            >>> add_filter(f"height eq @height", {"height": 12345})
+            >>> add_filter(f"height eq {height}L")
         """
         def query_filter_append(val: str):
             if self.query_filter:

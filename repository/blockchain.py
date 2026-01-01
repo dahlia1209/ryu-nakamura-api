@@ -7,6 +7,8 @@ from azure.data.tables import EntityProperty, EdmType
 from cryptography.hazmat.primitives.asymmetric import ec
 from utils.blockchain import execute_script
 import os
+import time
+
 
 #utilyty
 def int_to_int64(entity_dict: dict) -> dict:
@@ -160,14 +162,10 @@ def create_block(block: Block) :
             
             for i,vin in enumerate(t.vin):
                 # UTXOの存在確認
-                qf = QueryFilter()
-                qf.add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": vin.utxo_txid})
-                qf.add_filter(f"n eq @n", {"n": f"{vin.utxo_vout:020d}"})
-                table_entities = manager.blockchain_transaction_output_table.query_entities(**qf.model_dump())
-                table_entities_list = list(table_entities)
+                utxo_output=get_utxo(vin)
                 
                 # UTXOが存在しない
-                if not table_entities_list:
+                if not utxo_output:
                     # 同じブロック内の他のトランザクションでUTXOが生成されているかチェック
                     utxo_found_in_block = False
                     for tx in block.transactions:
@@ -196,35 +194,21 @@ def create_block(block: Block) :
                         # 次のvinへ続行
                         continue
                 
-                # UTXOが複数存在（データ整合性エラー）
-                if len(table_entities_list) > 1:
-                    raise ValueError(f"指定されたUTXOが複数存在します, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
-                
                 # UTXOの使用済みチェック
-                qf2 = QueryFilter()
-                qf2.add_filter(f"utxo_txid eq @utxo_txid", {"utxo_txid": vin.utxo_txid})
-                qf2.add_filter(f"utxo_vout eq @utxo_vout", {"utxo_vout": f"{vin.utxo_vout:020d}"})
-                table2_entities = manager.blockchain_transaction_vin_table.query_entities(**qf2.model_dump())
-                table2_entities_list = list(table2_entities)
-                
-                if table2_entities_list:
+                if is_spent_utxo(vin.utxo_txid,vin.utxo_vout):
                     raise ValueError(f"指定されたUTXOは利用済みです, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
                 
                 # UTXOの情報を取得してvinに設定
-                utxo_output = TransactionOutputEntity.model_validate(
-                    unwrap_entity_properties(table_entities_list[0])
-                )
                 vin.utxo_block_hash = utxo_output.block_hash
                 vin.script_type = utxo_output.script_type
                 vin.utxo_script_pubkey=utxo_output.script_pubkey_hex
+                vin.utxo_value=utxo_output.value
 
                 #verify signature
                 raw_message=t.get_hash_raw_message(i)
-                print("raw_message",raw_message)
                 message=t.hash256_hex(raw_message,False)
                 if not execute_script(vin.script_sig_asm,utxo_output.script_pubkey_asm,message,block.timestamp):
                     raise ValueError(f"署名検証エラーです。script sig:{vin.script_sig_asm},script pubkey:{utxo_output.script_pubkey_asm},script type:{utxo_output.script_type}")
-                
 
         #height更新
         block.height = current_block.height + 1 if current_block else 0
@@ -251,6 +235,46 @@ def create_block(block: Block) :
         
         return block
         
+    except Exception as e:
+        raise
+
+def get_utxo(vin:TransactionVin):
+    try:
+        manager = TableConnectionManager()
+        qf = QueryFilter()
+        qf.add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": vin.utxo_txid})
+        qf.add_filter(f"n eq @n", {"n": f"{vin.utxo_vout:020d}"})
+        table_entities = manager.blockchain_transaction_output_table.query_entities(**qf.model_dump())
+        table_entities_list = list(table_entities)
+        if not table_entities_list:
+            return None
+            
+        # UTXOが複数存在（データ整合性エラー）
+        if len(table_entities_list) > 1:
+            raise ValueError(f"指定されたUTXOが複数存在します, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
+        
+        utxo_output = TransactionOutputEntity.model_validate(
+                unwrap_entity_properties(table_entities_list[0])
+            )
+        
+        return utxo_output
+    
+    except Exception as e:
+        raise
+    
+def is_spent_utxo(utxo_txid:str,utxo_vout:int):
+    try:
+        # UTXOの使用済みチェック
+        manager = TableConnectionManager()
+        qf2 = QueryFilter()
+        qf2.add_filter(f"utxo_txid eq @utxo_txid", {"utxo_txid": utxo_txid})
+        qf2.add_filter(f"utxo_vout eq @utxo_vout", {"utxo_vout": f"{utxo_vout:020d}"})
+        table2_entities = manager.blockchain_transaction_vin_table.query_entities(**qf2.model_dump())
+        table2_entities_list = list(table2_entities)
+        result=bool(table2_entities_list)
+        
+        return result
+    
     except Exception as e:
         raise
 
@@ -512,3 +536,57 @@ def create_transaction_output(output: TransactionOutput) -> bool:
         
     except Exception as e:
         raise 
+
+def create_transaction_in_mempool(tran: Transaction) :
+    try:
+        manager = TableConnectionManager()
+
+        #Transaction check
+        for i,vin in enumerate(tran.vin):
+            # NOT COINBASEチェック
+            if vin.utxo_txid=="0"*64:
+                raise ValueError(f"指定されたutxoはCOINBASEのトランザクションです, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
+            
+            # UTXOの存在確認
+            utxo_output=get_utxo(vin)
+            if not utxo_output:
+                raise ValueError(f"指定されたUTXOは存在しません, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
+            
+            
+            # UTXOの使用済みチェック
+            if is_spent_utxo(vin.utxo_txid,vin.utxo_vout):
+                raise ValueError(f"指定されたUTXOは利用済みです, utxo:{vin.utxo_txid}, vout:{vin.utxo_vout}")
+            
+            # UTXOの情報を取得してvinに設定
+            vin.utxo_block_hash = utxo_output.block_hash
+            vin.script_type = utxo_output.script_type
+            vin.utxo_script_pubkey=utxo_output.script_pubkey_hex
+            vin.utxo_value=utxo_output.value
+
+            #verify signature
+            raw_message=tran.get_hash_raw_message(i)
+            message=tran.hash256_hex(raw_message,False)
+            if not execute_script(vin.script_sig_asm,utxo_output.script_pubkey_asm,message,int(time.time())):
+                raise ValueError(f"署名検証エラーです。script sig:{vin.script_sig_asm},script pubkey:{utxo_output.script_pubkey_asm},script type:{utxo_output.script_type}")
+        
+        # satoshis check
+        income=sum([vin.get_utxo_value() for vin in tran.vin])
+        outcome=sum([output.value for output in tran.outputs])+tran.fee
+        if income!=outcome:
+            raise ValueError(f"inputとoutputのsatoshiが一致していません。input合計:{income},output合計:{outcome}")
+            
+        #Transactionエンティティ作成
+        tran.block_height=0xffffffff
+        tran_entity= tran.to_entity()
+        entity_dict=int_to_int64(tran_entity.model_dump(exclude_none=True))
+        manager.blockchain_transaction_table.create_entity(entity_dict)
+        for vin in tran.vin:
+            create_transaction_vin(vin)
+        for output in tran.outputs:
+            create_transaction_output(output)
+        
+        return tran
+    
+        
+    except Exception as e:
+        raise

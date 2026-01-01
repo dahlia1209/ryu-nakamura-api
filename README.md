@@ -117,7 +117,7 @@ python blockchair_downloader.py transactions 20090103 20090112      # DL
 python blockchair_merger.py blocks -i ./blockchair_data   #展開&マージ
 python blockchair_bulk_insert.py inputs -d blockchain -t inputs -f .\merged_data\blockchair_bitcoin_inputs_merged_20251205_230030.tsv -p P@ssw0rd! #Bulk insert
 python export_json.py -p "P@ssw0rd!" -o ./json_data --pretty #JSON出力
-python post_blocks.py -f .\json_data\blockchain_20251206_000656.json --start 174 --limit 10 
+python post_blocks.py -f .\json_data\blockchain_20251206_121424.json --start 174 --limit 10 
 
 ssh instance-20251207-1807
 cd blockchain-project/
