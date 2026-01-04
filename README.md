@@ -21,8 +21,8 @@ C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/web
 
 ```sh
 # C:\src\ryu-nakamura-api\.venv\stripe.exe login 90日ごとに更新が必要
-cd C:\src\ryu-nakamura-api\tests
-pytest -v
+pytest tests/api/test_blockchain.py -v
+pytest tests/ -v
 ```
 
 ## デプロイ

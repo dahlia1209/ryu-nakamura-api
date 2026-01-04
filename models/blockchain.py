@@ -164,6 +164,7 @@ class Transaction(Base):
     locktime: int = Field(..., ge=0, le=2**32 - 1)
     vin: List["TransactionVin"] = Field(default_factory=list)
     outputs: List["TransactionOutput"] = Field(default_factory=list)
+    
 
     @model_validator(mode="after")
     def update_optional_field(self):
@@ -238,8 +239,17 @@ class Transaction(Base):
             + locktime_le
             + sighash_hex
         )
-    
-    
+        
+    def balance_check(self):
+        try:
+            income=sum([vin.get_utxo_value() for vin in self.vin])
+            outcome=sum([output.value for output in self.outputs])+self.fee
+            
+            if income!=outcome:
+                raise ValueError(f"inputとoutputのsatoshiが一致していません。input合計:{income},output合計:{outcome}")
+                
+        except Exception as e:
+            raise
 
 
 ScriptType = Literal[
@@ -270,6 +280,7 @@ class TransactionVin(Base):
     spent_txid: Optional[str] = Field(None, min_length=64, max_length=64)
     spent_witness: Optional[str] = None
     n: Optional[int] = None
+    is_mempool: Optional[int] = Field(0)
 
     @field_validator("n", "utxo_block_hash", "spent_block_hash")
     @classmethod
@@ -439,6 +450,7 @@ class TransactionVinEntity(BaseModel):
     spent_txid: str = Field(..., min_length=64, max_length=64)
     spent_witness: Optional[str] = None
     n: int
+    is_mempool: Optional[int] = Field(0)
 
     @field_validator("RowKey", mode="before")
     @classmethod

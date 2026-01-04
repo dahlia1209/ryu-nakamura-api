@@ -210,6 +210,9 @@ def create_block(block: Block) :
                 if not execute_script(vin.script_sig_asm,utxo_output.script_pubkey_asm,message,block.timestamp):
                     raise ValueError(f"署名検証エラーです。script sig:{vin.script_sig_asm},script pubkey:{utxo_output.script_pubkey_asm},script type:{utxo_output.script_type}")
 
+            # satoshis check
+            t.balance_check()
+        
         #height更新
         block.height = current_block.height + 1 if current_block else 0
         for t in block.transactions:
@@ -228,11 +231,7 @@ def create_block(block: Block) :
         #Transactionエンティティ作成
         for t in block.transactions:
             create_transaction(t)
-            for vin in t.vin:
-                create_transaction_vin(vin)
-            for output in t.outputs:
-                create_transaction_output(output)
-        
+
         return block
         
     except Exception as e:
@@ -269,6 +268,7 @@ def is_spent_utxo(utxo_txid:str,utxo_vout:int):
         qf2 = QueryFilter()
         qf2.add_filter(f"utxo_txid eq @utxo_txid", {"utxo_txid": utxo_txid})
         qf2.add_filter(f"utxo_vout eq @utxo_vout", {"utxo_vout": f"{utxo_vout:020d}"})
+        qf2.add_filter(f"is_mempool ne {1}L")
         table2_entities = manager.blockchain_transaction_vin_table.query_entities(**qf2.model_dump())
         table2_entities_list = list(table2_entities)
         result=bool(table2_entities_list)
@@ -370,6 +370,47 @@ def delete_block(partition_type: PartitionType, row_key: str):
         print(f"ブロック削除中にエラーが発生しました: {e}")
         raise
 
+def delete_transaction(block_hash: str, txid: str):
+    try:
+        manager = TableConnectionManager()
+        
+        # トランザクションのvinを削除
+        qf_tx = QueryFilter()
+        qf_tx.add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": txid})
+        vin_entities = query_transaction_vin_entity(qf_tx)
+        
+        for vin_entity in vin_entities:
+            manager.blockchain_transaction_vin_table.delete_entity(
+                partition_key=vin_entity.PartitionKey,
+                row_key=vin_entity.RowKey
+            )
+        
+        # トランザクションのoutputを削除
+        output_entities = query_transaction_output_entity(qf_tx)
+        
+        for output_entity in output_entities:
+            manager.blockchain_transaction_output_table.delete_entity(
+                partition_key=output_entity.PartitionKey,
+                row_key=output_entity.RowKey
+            )
+        
+        # トランザクション自体を削除
+        manager.blockchain_transaction_table.delete_entity(
+            partition_key=block_hash,
+            row_key=txid
+        )
+        
+        return True
+    
+    except ResourceNotFoundError as e:
+        print(f"エンティティが見つかりません: {e}")
+        return False
+        
+    except Exception as e:
+        print(f"ブロック削除中にエラーが発生しました: {e}")
+        raise
+
+
 def query_transaction(query_filter:QueryFilter):
     try:
         transaction_entities=query_transaction_entity(query_filter)
@@ -423,7 +464,43 @@ def get_transaction_entity(block_hash:str,txid:str):
     except Exception as e:
         raise
 
+
+def get_transaction(txid: str) :
+    try:
+        qf=QueryFilter()
+        qf.add_filter(f"RowKey eq @RowKey", {"RowKey": txid})
+        transactions=query_transaction(qf)
+        if not transactions:
+            return None
+        if len(transactions)>1:
+            raise Exception(f"内部エラー。指定されたIDのトランザクションが複数存在します。txid:{txid}")
+        return transactions[0]
+        
+    except Exception as e:
+        raise
+
 def create_transaction(tran: Transaction) :
+    try:
+        create_transaction_entity(tran)
+        for vin in tran.vin:
+            create_transaction_vin(vin)
+            
+        for output in tran.outputs:
+            create_transaction_output(output)
+            
+        #mempool Transaction削除
+        manager = TableConnectionManager()
+        manager.blockchain_transaction_table.delete_entity(
+            partition_key="0"*64,
+            row_key=tran.txid
+        )
+
+        return tran
+        
+    except Exception as e:
+        raise
+
+def create_transaction_entity(tran: Transaction) :
     try:
         manager = TableConnectionManager()
 
@@ -437,7 +514,7 @@ def create_transaction(tran: Transaction) :
         #エンティティ作成
         tran_entity= tran.to_entity()
         entity_dict=int_to_int64(tran_entity.model_dump(exclude_none=True))
-        manager.blockchain_transaction_table.create_entity(entity_dict)
+        manager.blockchain_transaction_table.upsert_entity(entity_dict)
 
         return tran
         
@@ -484,7 +561,7 @@ def create_transaction_vin(vin: TransactionVin):
         #エンティティ作成
         vin_entity = vin.to_entity()
         entity_dict=int_to_int64(vin_entity.model_dump(exclude_none=True))
-        manager.blockchain_transaction_vin_table.create_entity(entity_dict)
+        manager.blockchain_transaction_vin_table.upsert_entity(entity_dict)
         return vin
         
     except Exception as e:
@@ -531,7 +608,7 @@ def create_transaction_output(output: TransactionOutput) -> bool:
         output_entity=output.to_entity()
         entity_dict=int_to_int64(output_entity.model_dump(exclude_none=True))
 
-        manager.blockchain_transaction_output_table.create_entity(entity_dict)
+        manager.blockchain_transaction_output_table.upsert_entity(entity_dict)
         return output
         
     except Exception as e:
@@ -570,10 +647,7 @@ def create_transaction_in_mempool(tran: Transaction) :
                 raise ValueError(f"署名検証エラーです。script sig:{vin.script_sig_asm},script pubkey:{utxo_output.script_pubkey_asm},script type:{utxo_output.script_type}")
         
         # satoshis check
-        income=sum([vin.get_utxo_value() for vin in tran.vin])
-        outcome=sum([output.value for output in tran.outputs])+tran.fee
-        if income!=outcome:
-            raise ValueError(f"inputとoutputのsatoshiが一致していません。input合計:{income},output合計:{outcome}")
+        tran.balance_check()
             
         #Transactionエンティティ作成
         tran.block_height=0xffffffff
@@ -581,6 +655,7 @@ def create_transaction_in_mempool(tran: Transaction) :
         entity_dict=int_to_int64(tran_entity.model_dump(exclude_none=True))
         manager.blockchain_transaction_table.create_entity(entity_dict)
         for vin in tran.vin:
+            vin.is_mempool=1
             create_transaction_vin(vin)
         for output in tran.outputs:
             create_transaction_output(output)

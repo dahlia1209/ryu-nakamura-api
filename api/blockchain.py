@@ -8,6 +8,7 @@ from managers.auth_manager import (
     requires_scope,
 )
 from typing import Optional,List
+from models.query import QueryFilter
 
 router = APIRouter()
 
@@ -219,6 +220,20 @@ async def get_block(
     except Exception as e:
         raise HTTPException(status_code=500, detail="内部サーバーエラーが発生しました")
 
+
+@router.get("/blockchain/transaction", tags=["blockchain"])
+async def get_transaction(
+    txid: str = Query(...,max_length=64,min_length=64)
+):
+    try:
+        transaction=blockchain_repo.get_transaction(txid)
+        return transaction
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"エラー:{e}")
+        raise HTTPException(status_code=500, detail=f"内部サーバーエラーが発生しました")
+
 @router.post("/blockchain/transaction", tags=["blockchain"])
 async def post_transaction(
     transaction: Transaction = Body(
@@ -292,9 +307,26 @@ async def post_transaction_mempool(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"内部サーバーエラーが発生しました.error:{e}")
+        print(f"エラー:{e}")
+        raise HTTPException(status_code=500, detail=f"内部サーバーエラーが発生しました")
 
 
+@router.get("/blockchain/transaction/mempool/list", tags=["blockchain"])
+async def get_transaction_mempool_list(
+):
+    try:
+        qf=QueryFilter()
+        qf.add_filter(f"PartitionKey eq @PartitionKey", {"PartitionKey": "0" * 64})
+        transaction_entities = blockchain_repo.query_transaction_entity(qf)
+        return transaction_entities
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="内部サーバーエラーが発生しました")
+
+    
+    
 @router.post("/blockchain/transaction/input", tags=["blockchain"])
 async def post_transaction_input(
     txin: TransactionVin = Body(
