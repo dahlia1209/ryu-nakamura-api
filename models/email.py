@@ -43,9 +43,8 @@ class EmailContent(BaseModel):
                                 <td>
                                     <p>このメールは送信専用のメールアドレスから配信されています。ご返信いただいてもお答えできませんのでご了承ください。</p>
                                     <p>------------------------------</p>
-                                    <p>中村システムエンジニアリング事業所</p>
-                                    <p>〒101-0024 東京都千代田区神田和泉町1番地6-16ヤマトビル405</p>
-                                    <p><a href="https://www.ryu-nakamura.com">https://www.ryu-nakamura.com</a></p>
+                                    <p>屋号：RyuTech</p>
+                                    <p>Webサイト：<a href="https://www.ryu-nakamura.com">https://www.ryu-nakamura.com</a></p>
                                     <p>------------------------------</p>
                                     <p class="mailer-footer__menu" style="padding-top:32px;padding-bottom:16px;font-size:14px;line-height:2">
                                     </p>
