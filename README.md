@@ -6,14 +6,14 @@ cd C:\src\ryu-nakamura-api
 func start
 
 ## mac
-cd /Users/bizd2/src/ryu-nakamura-api
+cd ~/Developer/ryu-nakamura-api
 source .venv/bin/activate
 func start
 
 #ウェブフック起動
 C:\src\ryu-nakamura-api\.venv\stripe.exe login
 C:\src\ryu-nakamura-api\.venv\stripe.exe listen  --forward-to localhost:7071/webhooks
-
+stripe listen  --forward-to localhost:7071/webhooks
 ```
 
 
@@ -36,6 +36,7 @@ az functionapp config appsettings delete --name nakamura-fa-local --resource-gro
 ## アクセストークンを取得
 ```sh
 python C:\src\ryu-nakamura-api\.venv\Scripts\auth_client.py
+python ~/Developer/ryu-nakamura-api/.venv/Scripts/auth_client.py
 ```
 
 ## テーブル書き込み権限付与
@@ -67,6 +68,7 @@ claude
 
 
 ### 音声合成
+
 ```sh
 #docker desktop起動
 docker run --rm  -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
@@ -79,6 +81,18 @@ python C:\src\ryu-nakamura-api\work\make_voice.py local pv {title_no}
 # docker stop voicevox-engine
 ```
 
+```sh
+#docker desktop起動
+docker run --rm  -p '127.0.0.1:50021:50021' --name voicevox-engine voicevox/voicevox_engine:cpu-latest
+#音声合成(新しいターミナルで)
+source .venv/bin/activate
+cd ~/Developer/ryu-nakamura-api/work
+python ~/Developer/ryu-nakamura-api/work/make_voice.py local pv {title_no}
+#python C:\src\ryu-nakamura-api\work\make_voice.py production ga
+#docker停止
+# docker stop voicevox-engine
+```
+
 ### サムネイル画像形式変換
 ```sh
 cd C:\src\ryu-nakamura-api
@@ -86,6 +100,11 @@ cd C:\src\ryu-nakamura-api
 python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Downloads\0010.jpg" 0010.webp
 ```
 
+```sh
+cd ~/Developer/ryu-nakamura-api/work
+.venv\Scripts\activate
+python ~/Developer/ryu-nakamura-api/work/convert_jpeg_to_webp.py "/Users/ryun/Downloads/0013.jpg" 0013.webp
+```
 
 ### セットアップ(Mac)
 ・VSCODEダウンロード、起動

@@ -63,7 +63,7 @@ def test_make_checkout_session(auth_headers,test_prepare):
 def test_webhook(auth_headers):
     order_id='fff31094-2c50-450f-b689-00b7d5868b38'
     result = subprocess.run([
-        'C:\\src\\ryu-nakamura-api\\.venv\\stripe.exe', 
+        'stripe', 
         'trigger',
         'checkout.session.completed',
         '--add', 

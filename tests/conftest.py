@@ -6,17 +6,36 @@ import subprocess
 
 @pytest.fixture(scope="session", autouse=True)
 def load_env_from_json():
-    with open('C:\\src\\ryu-nakamura-api\\local.settings.json', 'r') as f:
-        config = json.load(f)
+    # conftest.py の場所を基準にプロジェクトルートを探す
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    settings_path = os.path.join(base_dir, 'local.settings.json')
     
-    # Valuesオブジェクト内の値のみを環境変数として設定
-    values = config.get('Values', {})
-    for key, value in values.items():
-        os.environ[key] = str(value)
-    os.environ['RECIPENTS_ADDRESS'] = os.getenv('TEST_RECIPENTS_ADDRESS')
+    with open(settings_path, 'r') as f:
+        settings = json.load(f)
+    
+    for key, value in settings.get('Values', {}).items():
+        os.environ.setdefault(key, str(value))
         
 @pytest.fixture
 def auth_headers(scope="session"):
-    result = subprocess.run(['python', 'C:\\src\\ryu-nakamura-api\\.venv\\Scripts\\auth_client.py'], capture_output=True, text=True)
-    access_token=json.loads(result.stdout)['access_token']
-    return  {"Authorization": f"Bearer {access_token}"}
+    # macOS/Linux対応の相対パスに変更
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    auth_script = os.path.join(base_dir, '.venv', 'bin', 'auth_client.py')  # macは bin/
+    
+    result = subprocess.run(
+        ['python', auth_script],
+        capture_output=True,
+        text=True
+    )
+    
+    # デバッグ用：失敗時にエラー内容を表示
+    if result.returncode != 0 or not result.stdout.strip():
+        raise RuntimeError(
+            f"auth_client.py の実行に失敗しました\n"
+            f"returncode: {result.returncode}\n"
+            f"stdout: {result.stdout!r}\n"
+            f"stderr: {result.stderr!r}"
+        )
+    
+    access_token = json.loads(result.stdout)['access_token']
+    return {"Authorization": f"Bearer {access_token}"}

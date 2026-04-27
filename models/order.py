@@ -26,9 +26,11 @@ class Order(BaseModel):
         "from_attributes": True
     }
 
-    def to_line_item(self):
-        return stripe.checkout.Session.CreateParamsLineItem(
-            price_data={
+    # models/order.py の to_line_item メソッドを以下に置き換える
+
+    def to_line_item(self) -> dict:
+        return {
+            "price_data": {
                 "currency": "jpy",
                 "product_data": {
                     "name": self.content.title,
@@ -37,8 +39,8 @@ class Order(BaseModel):
                 },
                 "unit_amount": int(self.content.price),
             },
-            quantity=self.quantity,
-        )
+            "quantity": self.quantity,
+        }
     
     def update_timestamp(self,mode:Literal['update','create','upsert']):
         if mode=='create':
