@@ -108,6 +108,11 @@ async def update_content(
         contents = content_repo.query_contents(qf)
         return contents
 
+    def refresh_content_text(content_item: Content):
+        soup = BeautifulSoup(content_item.content_html, 'html.parser')
+        content_item.content_html = str(soup)
+        content_item.content_text = soup.get_text()
+
     # メイン処理
     if content_id != content_item.id:
         raise HTTPException(
@@ -120,6 +125,7 @@ async def update_content(
             status_code=404,
             detail=f"指定されたID {content_id} のコンテンツが見つかりません",
         )
+    refresh_content_text(content_item)
     success = content_repo.update_content(content_item)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to create content")

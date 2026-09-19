@@ -35,13 +35,13 @@ class Content(BaseModel):
     def to_preview(self):
         preview_text=""
         preview_html=""
-        remaining_text_length=""
-        
+        remaining_text_length=0
+
         soup = BeautifulSoup(self.content_html, 'html.parser')
         first_h2 = soup.find('h2')
         if not first_h2:
             return PreviewContent(**self.model_dump(),preview_html=preview_html,preview_text=preview_text,remaining_text_length=remaining_text_length)
-        
+
         # 最初のh2とその後の連続するp要素を収集
         first_section_elements = [first_h2]
         current_element = first_h2.next_sibling

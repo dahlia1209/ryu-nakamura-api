@@ -16,3 +16,6 @@ azure-storage-blob
 google-api-python-client
 bech32
 coincurve
+app-store-server-library
+cryptography==43.0.3
+pyOpenSSL==24.2.1

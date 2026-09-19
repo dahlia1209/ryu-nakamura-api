@@ -39,21 +39,20 @@ async def webhook(
     result = None
     try:
         if event.type == 'checkout.session.expired' or event.type == 'checkout.session.completed':
-            status = event.data.object.get("status")
-            order_id = event.data.object.get('metadata', {}).get('order_id')
+            status = event.data.object.status
+            order_id = event.data.object.metadata['order_id'] if event.data.object.metadata else None
             order_item = order_repo.update_order_status(order_id, status)
             result = order_item
-
             if event.type == 'checkout.session.completed':
                 content = content_repo.get_content(str(order_item.content_id))
                 user = user_repo.get_user(str(order_item.user_id))
-                dt = datetime.datetime.fromtimestamp(event.data.object.get("created"))
+                dt = datetime.datetime.fromtimestamp(event.data.object.created)
+
                 background_tasks.add_task(purchased_complete, user.email, user.email, order_id, dt, content.title, int(content.price), content.content_html)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
     return result
 
 @router.post("/webhooks/singinsignup",tags=["webhooks"])

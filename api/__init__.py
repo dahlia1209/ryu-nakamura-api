@@ -1,5 +1,5 @@
 import fastapi
-from . import connection, contact,content,user,order,webhooks,blockchain
+from . import connection, contact,content,user,order,webhooks,blockchain,app_iap
 from fastapi.middleware.cors import CORSMiddleware
 
 app = fastapi.FastAPI()
@@ -19,3 +19,4 @@ app.include_router(user.router)
 app.include_router(order.router)
 app.include_router(webhooks.router)
 app.include_router(blockchain.router)
+app.include_router(app_iap.router)

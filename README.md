@@ -39,6 +39,10 @@ python C:\src\ryu-nakamura-api\.venv\Scripts\auth_client.py
 python ~/Developer/ryu-nakamura-api/.venv/Scripts/auth_client.py
 ```
 
+## クライアントID再発行
+Azureディレクトリをryun.onmicrosoft.comに切り替え
+Microsoft　Entra　ID＞エンタープライズアプリケーション＞
+
 ## テーブル書き込み権限付与
 ```sh
 $principalId=az ad sp show --id {uuid}  --query id -o tsv
@@ -59,6 +63,7 @@ claude
 ### コンテンツ公開手順
 ・サムネイル画像変換、アップロード
 ・検証API(api-local)でコンテンツ登録
+・(有料記事の場合) App Store ConnectでIAP商品を作成（RyuNakamuraApp、非消費型、product id: `ryu-nakamura.RyuNakamuraApp.content.{title_no}`、価格はWebと同額）
 ・コンテンツファイル＋音声合成生成（local pv、local gaの組み合わせ2パターン）
 ・検証環境確認
 ・商用APIでコンテンツ登録
@@ -103,7 +108,7 @@ python C:\src\ryu-nakamura-api\work\convert_jpeg_to_webp.py "C:\Users\dahli\Down
 ```sh
 cd ~/Developer/ryu-nakamura-api/work
 .venv\Scripts\activate
-python ~/Developer/ryu-nakamura-api/work/convert_jpeg_to_webp.py "/Users/ryun/Downloads/0013.jpg" 0013.webp
+python ~/Developer/ryu-nakamura-api/work/convert_jpeg_to_webp.py "/Users/ryun/Downloads/0015.png" 0015.webp
 ```
 
 ### セットアップ(Mac)
@@ -130,6 +135,15 @@ pip install -r requirements.txt
 ```sh
 func start
 ```
+
+## RyuNakamuraApp (iOS) 向け記事課金解除API
+記事購読アプリ「RyuNakamuraApp」向けに、StoreKit 2の署名付きトランザクションを検証して有料記事の本文を返すエンドポイントを用意している（`api/app_iap.py`, `managers/appstore_manager.py`）。
+
+- `POST /app/contents/{title_no}/unlock` （認証不要。ボディ`{"signed_transaction": "<jwsRepresentation>"}`）
+- Apple公式ライブラリ`app-store-server-library`で署名検証（Apple証明書は`managers/appstore_certs/`に配置）
+- 環境変数: `APPSTORE_BUNDLE_ID`（=`ryu-nakamura.RyuNakamuraApp`）, `APPSTORE_ENVIRONMENT`（`Sandbox`/`Production`/`Xcode`/`LocalTesting`）, `APPSTORE_APP_APPLE_ID`（Production環境のみ必須、App Store Connectのアプリ番号）
+- IAP商品IDの命名規則: `ryu-nakamura.RyuNakamuraApp.content.{title_no}`（非消費型）
+- `cryptography`と`pyOpenSSL`は`msal`（既存のAzure認証まわり）との依存衝突を避けるためバージョン固定している（`cryptography==43.0.3`, `pyOpenSSL==24.2.1`）。将来ライブラリを更新する際は`pip check`で衝突がないか確認すること。
 
 ## 便利ツール
 python blockchair_downloader.py transactions 20090103 20090112      # DL
