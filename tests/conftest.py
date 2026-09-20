@@ -20,7 +20,7 @@ def load_env_from_json():
 def auth_headers(scope="session"):
     # macOS/Linux対応の相対パスに変更
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    auth_script = os.path.join(base_dir, '.venv', 'bin', 'auth_client.py')  # macは bin/
+    auth_script = os.path.join(base_dir, '.venv', 'Scripts', 'auth_client.py')
     
     result = subprocess.run(
         ['python', auth_script],

@@ -1,5 +1,3 @@
-import os
-
 from fastapi import APIRouter, HTTPException, Path, Body
 from pydantic import BaseModel
 
@@ -7,6 +5,7 @@ from models.content import Content
 from models.query import QueryFilter
 from repository import content as content_repo
 from managers.appstore_manager import AppStoreManager, product_id_for_title_no
+from utils.app_free import app_free_title_nos
 
 router = APIRouter()
 
@@ -24,18 +23,12 @@ def _get_content_or_404(title_no: int) -> Content:
     return contents[0]
 
 
-def _app_free_title_nos() -> set[int]:
-    """WebのStripe価格とは無関係に、アプリ内でのみ無料公開する記事番号の一覧"""
-    raw = os.getenv("APP_FREE_TITLE_NOS", "")
-    return {int(part) for part in raw.split(",") if part.strip().isdigit()}
-
-
 @router.get("/app/contents/{title_no}", response_model=Content, tags=["app"])
 async def get_app_free_content(
     title_no: int = Path(..., description="無料公開されているか確認する記事のtitle_no"),
 ):
     """RyuNakamuraApp(iOS)向けに、アプリ内無料公開指定された記事のみ本文を返す（購入不要）"""
-    if title_no not in _app_free_title_nos():
+    if title_no not in app_free_title_nos():
         raise HTTPException(
             status_code=403,
             detail="この記事はアプリ内では無料公開されていません。購入してください。",

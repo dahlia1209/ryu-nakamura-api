@@ -13,6 +13,7 @@ from repository import content as content_repo
 from datetime import datetime
 import uuid
 from models.query import QueryFilter
+from utils.app_free import app_free_title_nos
 from bs4 import BeautifulSoup
 import os
 import json
@@ -169,8 +170,15 @@ async def generate_contents_list(
         qf = QueryFilter()
         contents = content_repo.query_contents(qf)
 
+        app_free = app_free_title_nos()
+        previews = []
+        for c in contents:
+            preview = c.to_preview()
+            preview.is_app_free = c.title_no in app_free
+            previews.append(preview)
+
         manager=BLOBConnectionManager()
-        contents_list = json.dumps([json.loads(c.to_preview().model_dump_json()) for c in contents])
+        contents_list = json.dumps([json.loads(p.model_dump_json()) for p in previews])
         
         blob_client = manager.client.get_blob_client(
                 container=os.getenv("AZURE_BLOB_CONTAINER_NAME","root"), 
@@ -178,7 +186,7 @@ async def generate_contents_list(
         )
             
         blob_client.upload_blob(contents_list, overwrite=True)
-        return [c.to_preview().model_dump() for c in contents]
+        return [p.model_dump() for p in previews]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"コンテンツ一覧ファイル生成に失敗しました:{e}")

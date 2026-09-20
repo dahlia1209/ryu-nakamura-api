@@ -80,12 +80,13 @@ class PreviewContent(BaseModel):
     category: str
     tags: List[str]
     publish_date: datetime
-    remaining_text_length: int 
+    remaining_text_length: int
     note_url: Optional[str] = None
     preview_speech_url: Optional[str] = None
     preview_moovie_url: Optional[str] = None
     meta_description:Optional[str]=None
-            
+    is_app_free: bool = False
+
 
 
 class ContentTableEntity(BaseModel):
